@@ -15942,8 +15942,7 @@ class DebugConfigProvider {
             const args = [];
             this.addArgsIfNotExist(args, ...processes_1.getGlobalFlutterArgs());
             this.addArgsIfNotExist(args, ...conf.flutterAdditionalArgs);
-            if (debugConfig.request === "attach")
-                this.addArgsIfNotExist(args, ...conf.flutterTestAdditionalArgs);
+            this.addArgsIfNotExist(args, ...conf.flutterTestAdditionalArgs);
             if (debugConfig.deviceId)
                 this.addArgsIfNotExist(args, "-d", debugConfig.deviceId);
             return args;
@@ -18550,12 +18549,13 @@ function showUserPrompts(logger, context, webClient, workspaceContext) {
             // If we've not got a stored version, this is the first install, so just
             // stash the current version and don't show anything.
             context.lastSeenVersion = extension_utils_1.extensionVersion;
-        }
-        else if (!extension_utils_1.isDevExtension && lastSeenVersionNotification !== extension_utils_1.extensionVersion) {
-            const versionLink = extension_utils_1.extensionVersion.split(".").slice(0, 2).join(".").replace(".", "-");
-            // tslint:disable-next-line: no-floating-promises
-            promptToShowReleaseNotes(extension_utils_1.extensionVersion, versionLink).then(() => context.lastSeenVersion = extension_utils_1.extensionVersion);
-            return;
+            // } else if (!isDevExtension && lastSeenVersionNotification !== extensionVersion) {
+            // 	const versionLink = extensionVersion.split(".").slice(0, 2).join(".").replace(".", "-");
+            // 	// tslint:disable-next-line: no-floating-promises
+            // 	promptToShowReleaseNotes(extensionVersion, versionLink).then(() =>
+            // 		context.lastSeenVersion = extensionVersion,
+            // 	);
+            // 	return;
         }
         if (workspaceContext.hasAnyFlutterProjects) {
             if (yield user_prompts_1.showFlutterSurveyNotificationIfAppropriate(context, webClient, utils_1.envUtils.openInBrowser, Date.now(), logger))
