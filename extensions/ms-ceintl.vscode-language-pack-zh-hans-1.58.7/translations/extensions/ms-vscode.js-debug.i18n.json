@@ -56,6 +56,10 @@
 			"profile.cpu.description": "生成可在 Chrome 开发工具中打开的 .cpuprofile 文件",
 			"profile.cpu.label": "CPU 配置文件"
 		},
+		"/src/adapter/profiling/heapDumpProfiler": {
+			"profile.heap.description": "生成可在 Chrome 开发工具中打开的 .heapsnapshot 文件",
+			"profile.heap.label": "堆快照"
+		},
 		"/src/adapter/sources": {
 			"source.skipFiles": "已由 skipFiles 跳过"
 		},
@@ -145,7 +149,7 @@
 			"outOfDate": "{0} 仍要尝试调试吗?",
 			"runtime.node.notfound.enoent": "路径不存在",
 			"runtime.node.notfound.spawnErr": "获取版本时出错: {0}",
-			"warning.16bpIssue": "在你的 Node.js 版本中，某些断点可能不起作用。建议暂时降级到节点 14。详细信息: https://aka.ms/AAcsvqm",
+			"warning.16bpIssue": "在你的 Node.js 版本中，某些断点可能不起作用。我们建议升级以获取最新的 bug、性能和安全修复。详细信息: https://aka.ms/AAcsvqm",
 			"warning.8outdated": "你正在运行的 Node.js 版本已过期。我们建议升级以获取最新的针对 bug、性能和安全的修复。",
 			"yes": "是"
 		},
@@ -263,7 +267,9 @@
 			"yes": "是"
 		},
 		"/src/ui/profiling/uiProfileSession": {
-			"profile.saving": "正在保存"
+			"profile.saving": "正在保存",
+			"progress.profile.start": "正在启动配置文件...",
+			"progress.profile.stop": "正在停止配置文件..."
 		},
 		"/src/ui/terminalLinkHandler": {
 			"cantOpenChromeOnWeb": "无法从此处启动调试模式下的浏览器。若要调试此网页，请从桌面上的 VS Code 打开此工作区。",
@@ -301,6 +307,7 @@
 			"browser.skipFiles.description": "文件或文件夹名称，或者路径 glob 的数组，在调试时跳过。",
 			"browser.smartStep.description": "自动单步运行源映射文件中未映射的行。例如，向下编译异步/等待或其他功能时，TypeScript 自动生成的代码。",
 			"browser.sourceMapPathOverrides.description": "一组用于重写源映射中所述的源文件位置的映射，映射到磁盘上的相应位置。有关详细信息，请参见自述文件。",
+			"browser.sourceMapRenames.description": "是否在 sourcemap 使用“名称”映射。这需要请求源内容，后者在使用某些调试程序时，速度会很慢。",
 			"browser.sourceMaps.description": "使用 JavaScript 源映射(如存在)。",
 			"browser.targetSelection": "是附加到与 URL 筛选器匹配的所有目标(“自动”)还是要求选择一个(“选择”)。",
 			"browser.timeout.description": "重试此毫秒数以连接到浏览器。默认值为 10000 毫秒。",
