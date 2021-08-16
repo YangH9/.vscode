@@ -200,7 +200,7 @@ function genSystemMessage(data) {
     } else if (data.notice_type === "group") {
         switch (data.sub_type) {
             case "recall":
-                msg = `${genLabel(data.operator_id)} 撤回了 ${data.user_id === data.operator_id ? "自己" : genLabel(data.user_id)} 的<a href="#${data.message_id}">一条消息</>`;
+                msg = `${genLabel(data.operator_id)} 撤回了 ${data.user_id === data.operator_id ? "自己" : genLabel(data.user_id)} 的<a href="#${data.message_id}" onclick="document.querySelector('#${filterMsgIdSelector(data.message_id).replace(/\\/g, "\\\\")}')?.nextElementSibling.animate([{'background':'var(--vscode-sideBar-background)'}],{duration: 3000})">一条消息</>`;
                 appendRecalledText(data.message_id);
                 break;
             case "increase":
@@ -420,7 +420,7 @@ function parseMessage(message) {
                 if (message[1]?.type === "at" && message[3]?.type === "at" && message[1]?.data.qq === message[3]?.data.qq) {
                     message.splice(1, 2);
                 }
-                msg += `<a href="#${v.data.id}">[回复]</a>`;
+                msg += `<a href="#${v.data.id}" onclick="document.querySelector('#${filterMsgIdSelector(v.data.id).replace(/\\/g, "\\\\")}')?.nextElementSibling.animate([{'background':'var(--vscode-sideBar-background)'}],{duration: 3000})">[回复]</a>`;
                 break;
             case "rps":
                 msg += "[猜拳]";
