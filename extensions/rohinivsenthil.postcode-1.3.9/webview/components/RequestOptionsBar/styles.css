@@ -1,0 +1,56 @@
+.request-options-tab-wrapper {
+  display: flex;
+  justify-content: space-between;
+  padding: 15px 20px 0 20px;
+}
+
+.request-options {
+  display: flex;
+}
+
+.request-option {
+  padding: 0px 5px 10px 5px;
+  margin: 0 10px 0 0;
+  display: flex;
+  cursor: pointer;
+  background-color: transparent;
+  color: var(--default-text-light);
+  outline: none;
+  border: 3px solid transparent;
+  border-radius: 0;
+  font-weight: 500;
+  font-size: var(--default-font-size);
+}
+.request-option:hover {
+  color: var(--default-text);
+}
+
+.request-option-selected {
+  color: var(--default-text);
+  border-bottom: 3px solid var(--primary);
+}
+
+.request-options-header-length {
+  margin-left: 4px;
+  color: var(--tab-info);
+}
+
+.button-request {
+  display: inline-block;
+  cursor: pointer;
+  background-color: transparent;
+  color: var(--primary);
+  outline: none;
+  border: 3px solid transparent;
+  border-radius: 0;
+  font-weight: 500;
+  font-size: var(--default-font-size);
+}
+
+.button-request:hover {
+  color: var(--primary-dark);
+}
+
+.hidden {
+  display: none; 
+}

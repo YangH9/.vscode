@@ -1,0 +1,40 @@
+.request-bar {
+  display: flex;
+  padding: 0 20px;
+  padding-top: 30px;
+}
+
+.input-request-url {
+  flex: 2;
+  padding: 13px 20px;
+  color: var(--default-text);
+  display: inline-block;
+  outline: none;
+  border: 0;
+  border-radius: 0 2px 2px 0;
+  background-color: var(--input-field);
+  font-size: var(--default-font-size);
+}
+.input-request-url:focus {
+  outline: none;
+}
+.input-request-url:hover {
+  background-color: var(--input-field-hover);
+}
+
+.button-request-send {
+  background-color: var(--send-button);
+  color: #fff;
+  font-weight: bold;
+  padding: 13px 20px;
+  margin: 0 0 0 12px;
+  display: inline-block;
+  outline: none;
+  border-radius: 5%;
+  border: 0;
+  cursor: pointer;
+  font-size: var(--default-font-size);
+}
+.button-request-send:hover {
+  background-color: var(--send-button-hover);
+}

@@ -1,0 +1,12 @@
+.none-wrapper {
+  border-top: var(--default-border-size) solid var(--border);
+  display: flex;
+  justify-content: center;
+  margin-top: 15px;
+}
+
+.none-prompt {
+  color: var(--default-text-light);
+  font-size: var(--default-font-size);
+  margin-top: 20px;
+}

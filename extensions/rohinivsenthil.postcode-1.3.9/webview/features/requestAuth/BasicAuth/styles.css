@@ -1,0 +1,30 @@
+.basic-auth-input-group {
+  padding: 15px 0 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.label-basic-auth {
+  font-size: var(--default-font-size);
+  color: var(--default-text);
+  padding-right: 20px;
+}
+
+.input-basic-auth {
+  width: 60%;
+  padding: 13px 20px;
+  color: var(--default-text);
+  display: inline-block;
+  outline: none;
+  border: 0;
+  border-radius: 0 2px 2px 0;
+  background-color: var(--input-field);
+  font-size: var(--default-font-size);
+}
+.input-basic-auth:focus {
+  outline: none;
+}
+.input-basic-auth:hover {
+  background-color: var(--input-field-hover);
+}

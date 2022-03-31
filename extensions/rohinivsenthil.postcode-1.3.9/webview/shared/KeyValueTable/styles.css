@@ -1,0 +1,47 @@
+.kv-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.kv-table,
+td,
+th {
+  border: var(--default-border-size) solid var(--border);
+}
+
+th,
+.kv-input {
+  color: var(--default-text);
+  padding: 10px 12px;
+}
+
+th {
+  text-align: left;
+  font-weight: 700;
+  font-size: var(--small-font-size);
+}
+
+.kv-action-cell {
+  text-align: center;
+  width: 30px;
+}
+
+.kv-input {
+  box-sizing: border-box;
+  width: 100%;
+  border: 0;
+  background-color: transparent;
+  font-size: var(--default-font-size);
+}
+
+.kv-input:focus {
+  outline: none;
+}
+
+.kv-disabled .kv-input {
+  color: var(--input-field-unchecked);
+}
+
+.kv-delete-button {
+  cursor: pointer;
+}
