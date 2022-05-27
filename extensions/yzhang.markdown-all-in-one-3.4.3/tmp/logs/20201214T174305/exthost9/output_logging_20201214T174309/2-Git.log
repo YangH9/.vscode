@@ -1,0 +1,16 @@
+Looking for git in: C:\Program Files\Git\cmd\git.exe
+Using git 2.23.0.windows.1 from C:\Program Files\Git\cmd\git.exe
+> git rev-parse --git-dir
+Open repository: d:\Workspace\vscode-markdown
+> git status -z -u
+> git symbolic-ref --short HEAD
+> git rev-parse master
+> git rev-parse --symbolic-full-name master@{u}
+> git rev-list --left-right master...refs/remotes/origin/master
+> git for-each-ref --sort -committerdate --format %(refname) %(objectname) %(*objectname)
+> git remote --verbose
+> git config --get commit.template
+> git check-ignore -v -z --stdin
+> git show --textconv :test/test.md
+> git ls-files --stage -- D:\Workspace\vscode-markdown\test\test.md
+> git cat-file -s e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
