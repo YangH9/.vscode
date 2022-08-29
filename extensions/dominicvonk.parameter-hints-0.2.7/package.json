@@ -1,0 +1,136 @@
+{
+	"name": "parameter-hints",
+	"displayName": "Parameter Hints",
+	"description": "Automatic parameter hints",
+	"version": "0.2.7",
+	"preview": true,
+	"icon": "icon.png",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/DominicVonk/VSCode-Parameter-Hints.git"
+	},
+	"scripts": {
+		"package": "npx vsce package",
+		"publish": "npx vsce publish && npx ovsx publish",
+		"vscode:prepublish": "webpack --mode production",
+		"compile": "webpack --mode none",
+		"watch": "webpack --mode none --watch",
+		"test-compile": "npm run compile"
+	},
+	"engines": {
+		"vscode": "^1.49.0"
+	},
+	"publisher": "DominicVonk",
+	"categories": [
+		"Other"
+	],
+	"activationEvents": [
+		"onStartupFinished"
+	],
+	"contributes": {
+		"commands": [
+			{
+				"command": "parameterHints.toggle",
+				"title": "Parameter Hints: Hide / Show Hints"
+			}
+		],
+		"configuration": [
+			{
+				"title": "Parameter Hints",
+				"properties": {
+					"parameterHints.enabled": {
+						"type": "boolean",
+						"description": "Enable Parameter Hints",
+						"default": true
+					},
+					"parameterHints.languages": {
+						"type": "array",
+						"description": "Enable Languages",
+						"default": [
+							"php",
+							"javascript",
+							"typescript",
+							"javascriptreact",
+							"typescriptreact"
+						],
+						"enum": [
+							"php",
+							"javascript",
+							"typescript",
+							"javascriptreact",
+							"typescriptreact"
+						]
+					},
+					"parameterHints.hintingType": {
+						"type": "string",
+						"default": "variableAndType",
+						"enum": [
+							"typeOnly",
+							"variableAndType",
+							"variableOnly"
+						]
+					},
+					"parameterHints.padding": {
+						"type": "string",
+						"description": "Padding Vertical",
+						"default": "1 4"
+					},
+					"parameterHints.margin": {
+						"type": "string",
+						"description": "Margin",
+						"default": "0 1"
+					}
+				}
+			}
+		],
+		"colors": [
+			{
+				"id": "parameterHints.hintForeground",
+				"description": "Specifies the foreground color for the hints",
+				"defaults": {
+					"dark": "#FFFFFF88",
+					"light": "#00000088",
+					"highContrast": "#FFFFFF88"
+				}
+			},
+			{
+				"id": "parameterHints.hintBackground",
+				"description": "Specifies the background color for the hints",
+				"defaults": {
+					"dark": "#11111188",
+					"light": "#eeeeee88",
+					"highContrast": "#33333388"
+				}
+			}
+		]
+	},
+	"main": "./dist/extension.js",
+	"devDependencies": {
+		"@types/glob": "^7.1.1",
+		"@types/mocha": "^7.0.2",
+		"@types/node": "^13.13.21",
+		"@types/vscode": "^1.49.0",
+		"eslint": "^6.8.0",
+		"glob": "^7.1.6",
+		"mocha": "^7.1.2",
+		"typescript": "^4.1.0-dev.20200930",
+		"vscode-test": "^1.4.0",
+		"webpack": "^4.44.2",
+		"webpack-cli": "^3.3.12"
+	},
+	"dependencies": {
+		"dash-ast": "^2.0.1",
+		"php-parser": "^3.0.1"
+	},
+	"__metadata": {
+		"id": "7fd5f373-10e9-45ae-8a88-a7dd234dd5a3",
+		"publisherId": "41fc11d2-c25b-4c39-b1b6-9d49006a05ba",
+		"publisherDisplayName": "Dominic Vonk",
+		"targetPlatform": "undefined",
+		"isApplicationScoped": false,
+		"updated": false,
+		"isPreReleaseVersion": false,
+		"preRelease": false,
+		"installedTimestamp": 1657940141861
+	}
+}

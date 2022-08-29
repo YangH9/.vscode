@@ -1,0 +1,129 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getIndexOfWorkspaceFolder = exports.transformHyphenToPascal = exports.transformCamelToPascal = exports.normalizePath = exports.debounce = exports.mostLikeAlias = exports.isObject = void 0;
+const path = require("path");
+const fs = require("fs");
+const vscode_1 = require("vscode");
+function isObject(obj) {
+    return Object.prototype.toString.call(obj) === '[object Object]';
+}
+exports.isObject = isObject;
+/**
+ * 寻找一个最近似的alias，例如有如下alias列表['@', '@src'], 有一个输入是'@src/teste/test', 这时候应该返回`@src`
+ *
+ * @export
+ * @param {string[]} aliasList
+ * @param {string} path
+ * @returns {string}
+ */
+function mostLikeAlias(aliasList, path) {
+    let index = -1;
+    aliasList.forEach((curAlias, i) => {
+        if (path === curAlias) {
+            index = i;
+        }
+    });
+    return index !== -1 ? aliasList[index] : '';
+}
+exports.mostLikeAlias = mostLikeAlias;
+function debounce(fn, timeout, ctx) {
+    let timer;
+    return function (...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+            fn.call(ctx, ...args);
+        }, timeout);
+    };
+}
+exports.debounce = debounce;
+/**
+ *
+ * 规范化一个路径，当省略某个目录下的index文件时会默认添加
+ * @export
+ * @param {string} absolutePath
+ */
+function normalizePath(absolutePath) {
+    if (fs.existsSync(absolutePath)) {
+        if (fs.statSync(absolutePath).isDirectory()) {
+            const indexFile = path.join(absolutePath, 'index.js');
+            if (fs.existsSync(indexFile)) {
+                absolutePath = indexFile;
+            }
+        }
+    }
+    return absolutePath;
+}
+exports.normalizePath = normalizePath;
+/**
+ * 将驼峰风格的变量转化为Pascal风格
+ *
+ * @export
+ * @param {string} str
+ * @returns {string}
+ */
+function transformCamelToPascal(str) {
+    let last = 0;
+    let i = 0;
+    let retList = [];
+    while (i < str.length) {
+        if (isUpperCase(str[i])) {
+            retList.push(str.slice(last, i));
+            last = i;
+        }
+        i++;
+    }
+    retList.push(str.slice(last, i));
+    return retList
+        .filter(Boolean)
+        .map(item => {
+        return item[0].toUpperCase() + item.slice(1);
+    })
+        .join('');
+}
+exports.transformCamelToPascal = transformCamelToPascal;
+/**
+ * 将使用短横线连接的变量转化为Pascal风格的变量
+ *
+ * @export
+ * @param {string} str
+ * @returns {string}
+ */
+function transformHyphenToPascal(str) {
+    let last = 0;
+    let i = 0;
+    let retList = [];
+    while (i < str.length) {
+        if (str[i] === '-') {
+            retList.push(str.slice(last, i));
+            last = i + 1;
+        }
+        i++;
+    }
+    retList.push(str.slice(last, i));
+    return retList
+        .filter(Boolean)
+        .map(item => {
+        return item[0].toUpperCase() + item.slice(1);
+    })
+        .join('');
+}
+exports.transformHyphenToPascal = transformHyphenToPascal;
+function isUpperCase(char) {
+    return char >= 'A' && char <= 'Z';
+}
+/**
+ * 返回给定的uri属于的workspaceFolder 索引
+ *
+ * @export
+ * @param {Uri} uri
+ * @returns {(number | undefined)}
+ */
+function getIndexOfWorkspaceFolder(uri) {
+    const ws = vscode_1.workspace.getWorkspaceFolder(uri);
+    if (ws) {
+        return ws.index;
+    }
+    return undefined;
+}
+exports.getIndexOfWorkspaceFolder = getIndexOfWorkspaceFolder;
+//# sourceMappingURL=common.js.map
