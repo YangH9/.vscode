@@ -827,6 +827,11 @@ class Minimatch {
     this.options = options
     this.set = []
     this.pattern = pattern
+    this.windowsPathsNoEscape = !!options.windowsPathsNoEscape ||
+      options.allowWindowsEscape === false
+    if (this.windowsPathsNoEscape) {
+      this.pattern = this.pattern.replace(/\\/g, '/')
+    }
     this.regexp = null
     this.negate = false
     this.comment = false
@@ -6583,14 +6588,14 @@ class Analytics {
     logAnalyzerStartupTime(timeInMS) { this.time(Category.Analyzer, TimingVariable.Startup, timeInMS).catch((e) => this.logger.info(`${e}`)); }
     logDebugSessionDuration(debuggerType, timeInMS) { this.time(Category.Debugger, TimingVariable.SessionDuration, timeInMS, debuggerType).catch((e) => this.logger.info(`${e}`)); }
     logAnalyzerFirstAnalysisTime(timeInMS) { this.time(Category.Analyzer, TimingVariable.FirstAnalysis, timeInMS).catch((e) => this.logger.info(`${e}`)); }
-    logDebuggerStart(resourceUri, debuggerType, runType, sdkDap) {
+    logDebuggerStart(debuggerType, runType, sdkDap) {
         const customData = {
             cd15: debuggerType,
             cd16: runType,
             cd18: sdkDap ? "SDK" : "Legacy",
             cd6: this.getDebuggerPreference(),
         };
-        this.event(Category.Debugger, EventAction.Activated, resourceUri, customData).catch((e) => this.logger.info(`${e}`));
+        this.event(Category.Debugger, EventAction.Activated, customData).catch((e) => this.logger.info(`${e}`));
     }
     logDebuggerRestart() { this.event(Category.Debugger, EventAction.Restart).catch((e) => this.logger.info(`${e}`)); }
     logDebuggerHotReload() { this.event(Category.Debugger, EventAction.HotReload).catch((e) => this.logger.info(`${e}`)); }
@@ -6600,7 +6605,7 @@ class Analytics {
     logFlutterSurveyShown() { this.event(Category.FlutterSurvey, EventAction.Shown).catch((e) => this.logger.info(`${e}`)); }
     logFlutterSurveyClicked() { this.event(Category.FlutterSurvey, EventAction.Clicked).catch((e) => this.logger.info(`${e}`)); }
     logFlutterSurveyDismissed() { this.event(Category.FlutterSurvey, EventAction.Dismissed).catch((e) => this.logger.info(`${e}`)); }
-    event(category, action, resourceUri, customData) {
+    event(category, action, customData) {
         const data = {
             ea: EventAction[action],
             ec: Category[category],
@@ -6614,7 +6619,7 @@ class Analytics {
         // Force a session end if this is extension deactivation.
         if (category === Category.Extension && action === EventAction.Deactivated)
             data.sc = "end";
-        return this.send(data, resourceUri);
+        return this.send(data);
     }
     time(category, timingVariable, timeInMS, label) {
         const data = {
@@ -6637,7 +6642,7 @@ class Analytics {
         };
         return this.send(data);
     }
-    send(customData, resourceUri) {
+    send(customData) {
         return __awaiter(this, void 0, void 0, function* () {
             if (this.disableAnalyticsForSession
                 || !machineId
@@ -7064,7 +7069,7 @@ class LspMainCodeLensProvider {
         });
     }
     createCodeLens(document, mainFunction, name, debug, template) {
-        return new vscode_1.CodeLens((0, utils_2.lspToRange)(mainFunction.range), {
+        return new vscode_1.CodeLens((0, utils_2.lspToRange)(mainFunction.codeRange), {
             arguments: template ? [document.uri, template] : [document.uri],
             command: debug ? "dart.startDebugging" : "dart.startWithoutDebugging",
             title: name,
@@ -8304,8 +8309,8 @@ class DebugCommands {
         session.hasEnded = true;
         exports.debugSessions.splice(sessionIndex, 1);
         // Close any in-progress progress notifications.
-        for (const progressID of Object.keys(session.progress))
-            (_a = session.progress[progressID]) === null || _a === void 0 ? void 0 : _a.complete();
+        for (const progressId of Object.keys(session.progress))
+            (_a = session.progress[progressId]) === null || _a === void 0 ? void 0 : _a.complete();
         const debugSessionEnd = new Date();
         this.analytics.logDebugSessionDuration(enums_1.DebuggerType[session.debuggerType], debugSessionEnd.getTime() - session.sessionStart.getTime());
         // If this was the last session terminating, then remove all the flags for which service extensions are supported.
@@ -8442,11 +8447,12 @@ class DebugCommands {
                 // When a debug session is restarted by VS Code (eg. not handled by the DA), the session-end event
                 // will not fire so we need to clean up the "Terminating debug session" message manually. Doing it here
                 // means it will vanish at the same time as the new one appears, so there are no gaps in progress indicators.
-                if (e.body.progressID === constants_1.debugLaunchProgressId) {
+                if (e.body.progressId === constants_1.debugLaunchProgressId) {
                     (_a = session.progress[constants_1.debugTerminatingProgressId]) === null || _a === void 0 ? void 0 : _a.complete();
                     delete session.progress[constants_1.debugTerminatingProgressId];
                 }
-                const isHotEvent = e.body.progressID.endsWith("-hot.reload") || e.body.progressID.endsWith("-hot.restart");
+                const progressId = e.body.progressId;
+                const isHotEvent = (progressId === null || progressId === void 0 ? void 0 : progressId.includes("reload")) || (progressId === null || progressId === void 0 ? void 0 : progressId.includes("restart"));
                 const progressLocation = isHotEvent && config_1.config.hotReloadProgress === "statusBar" ? vs.ProgressLocation.Window : vs.ProgressLocation.Notification;
                 vs.window.withProgress(
                 // TODO: This was previously Window to match what we'd get using DAP progress
@@ -8455,26 +8461,27 @@ class DebugCommands {
                 // https://github.com/Dart-Code/Dart-Code/issues/2597
                 // If this is changed back, ensure the waiting-for-debug-extension notification
                 // is still displayed with additional description.
-                { location: progressLocation }, (progress) => {
+                { location: progressLocation, title: e.body.title }, (progress) => {
                     var _a, _b;
                     // Complete any existing one with this ID.
-                    (_a = session.progress[e.body.progressID]) === null || _a === void 0 ? void 0 : _a.complete();
+                    (_a = session.progress[e.body.progressId]) === null || _a === void 0 ? void 0 : _a.complete();
                     // Build a new progress and store it in the session.
                     const completer = new utils_1.PromiseCompleter();
-                    session.progress[e.body.progressID] = new debug_1.ProgressMessage(progress, completer);
-                    (_b = session.progress[e.body.progressID]) === null || _b === void 0 ? void 0 : _b.report(e.body.message);
+                    session.progress[e.body.progressId] = new debug_1.ProgressMessage(progress, completer);
+                    if (e.body.message)
+                        (_b = session.progress[e.body.progressId]) === null || _b === void 0 ? void 0 : _b.report(e.body.message);
                     return completer.promise;
                 });
             }
             else if (e.event === "dart.progressUpdate") {
-                (_b = session.progress[e.body.progressID]) === null || _b === void 0 ? void 0 : _b.report(e.body.message);
+                (_b = session.progress[e.body.progressId]) === null || _b === void 0 ? void 0 : _b.report(e.body.message);
             }
             else if (e.event === "dart.progressEnd") {
                 if (e.body.message) {
-                    (_c = session.progress[e.body.progressID]) === null || _c === void 0 ? void 0 : _c.report(e.body.message);
+                    (_c = session.progress[e.body.progressId]) === null || _c === void 0 ? void 0 : _c.report(e.body.message);
                     yield new Promise((resolve) => setTimeout(resolve, 400));
                 }
-                (_d = session.progress[e.body.progressID]) === null || _d === void 0 ? void 0 : _d.complete();
+                (_d = session.progress[e.body.progressId]) === null || _d === void 0 ? void 0 : _d.complete();
             }
             else if (e.event === "dart.flutter.widgetErrorInspectData") {
                 if (this.suppressFlutterWidgetErrors || !config_1.config.showInspectorNotificationsForWidgetErrors)
@@ -9567,7 +9574,6 @@ const enums_1 = __webpack_require__(7341);
 const logging_1 = __webpack_require__(8323);
 const utils_1 = __webpack_require__(4586);
 const fs_1 = __webpack_require__(300);
-const config_1 = __webpack_require__(4165);
 const utils_2 = __webpack_require__(8779);
 const log_1 = __webpack_require__(8202);
 exports.isLogging = false;
@@ -9619,7 +9625,7 @@ class LoggingCommands {
             const logUri = vs.Uri.file(logFilename);
             (0, utils_2.createFolderForFile)(logFilename);
             const allLoggedCategories = [enums_1.LogCategory.General].concat(categoriesToLog);
-            const logger = (0, logging_1.captureLogs)(this.logger, (0, fs_1.fsPath)(logUri), (0, log_1.getLogHeader)(), config_1.config.maxLogLineLength, allLoggedCategories);
+            const logger = (0, logging_1.captureLogs)(this.logger, (0, fs_1.fsPath)(logUri), (0, log_1.getLogHeader)(), constants_1.captureLogsMaxLineLength, allLoggedCategories);
             exports.isLogging = true;
             this.disposables.push(logger);
             vs.commands.executeCommand("setContext", constants_1.DART_IS_CAPTURING_LOGS_CONTEXT, true);
@@ -10966,9 +10972,10 @@ class Config {
     getWorkspaceConfig(key) {
         const c = this.config.inspect(key);
         if (c && c.workspaceValue)
-            return (0, utils_1.nullToUndefined)(c.workspaceValue);
-        if (c && c.workspaceFolderValue)
-            return (0, utils_1.nullToUndefined)(c.workspaceFolderValue);
+            return c.workspaceValue;
+        if (c && c.workspaceFolderValue) {
+            return c.workspaceFolderValue;
+        }
         return undefined;
     }
     setConfig(key, value, target) {
@@ -12228,7 +12235,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.getExperiments = void 0;
-const constants_1 = __webpack_require__(5628);
 const fs_1 = __webpack_require__(300);
 // Used for testing. DO NOT COMMIT AS TRUE.
 const clearAllExperiments = false;
@@ -12297,7 +12303,7 @@ class SdkDapExperiment extends Experiment {
     constructor(logger, workspaceContext, context) {
         super(logger, workspaceContext, context, "sdkDaps", 10);
     }
-    get applies() { return super.applies && !constants_1.isWin; }
+    get applies() { return super.applies; }
 }
 
 
@@ -12454,7 +12460,7 @@ const logger = new logging_1.EmittingLogger();
 // user when something crashed even if they don't have disk-logging enabled.
 exports.ringLog = new logging_1.RingLog(200);
 function activate(context, isRestart = false) {
-    var _a;
+    var _a, _b, _c, _d;
     return __awaiter(this, void 0, void 0, function* () {
         // Ring logger is only set up once and presist over silent restarts.
         if (!ringLogger)
@@ -12550,6 +12556,7 @@ function activate(context, isRestart = false) {
         if (workspaceContext.hasAnyFlutterProjects && sdks.flutter) {
             let runIfNoDevices;
             let hasRunNoDevicesMessage = false;
+            let portFromLocalExtension;
             if (workspaceContext.config.forceFlutterWorkspace && workspaceContext.config.restartMacDaemonMessage) {
                 runIfNoDevices = () => {
                     if (!hasRunNoDevicesMessage) {
@@ -12559,8 +12566,30 @@ function activate(context, isRestart = false) {
                     }
                 };
             }
-            flutterDaemon = new flutter_daemon_1.FlutterDaemon(logger, workspaceContext, flutterCapabilities, runIfNoDevices);
-            deviceManager = new device_manager_1.FlutterDeviceManager(logger, flutterDaemon, config_1.config, workspaceContext, runIfNoDevices);
+            if (workspaceContext.config.forceFlutterWorkspace) {
+                let resultFromLocalExtension = null;
+                const command = vs.commands.executeCommand("flutter-local-device-exposer.startDaemon", { script: (_a = workspaceContext.config.flutterToolsScript) === null || _a === void 0 ? void 0 : _a.script, command: "expose_devices", workingDirectory: workspaceContext.config.flutterSdkHome });
+                try {
+                    resultFromLocalExtension = yield (0, utils_1.withTimeout)(command, `The local extension to expose devices timed out. ${(_b = workspaceContext.config.localDeviceCommandAdviceMessage) !== null && _b !== void 0 ? _b : ""}`, 10);
+                }
+                catch (e) {
+                    // Command won't be available if dartlocaldevice isn't installed.
+                    logger.error(e);
+                }
+                if (resultFromLocalExtension !== null) {
+                    const resultMessage = resultFromLocalExtension.toString();
+                    const results = resultMessage.match(/Device daemon is available on remote port: (\d+)/i);
+                    if (results !== null && (results === null || results === void 0 ? void 0 : results.length) > 1) {
+                        portFromLocalExtension = parseInt(results[1]);
+                    }
+                    else if (resultMessage !== null) {
+                        const displayError = `The local extension to expose devices failed: ${resultMessage}. ${(_c = workspaceContext.config.localDeviceCommandAdviceMessage) !== null && _c !== void 0 ? _c : ""}`;
+                        vs.window.showErrorMessage(displayError);
+                    }
+                }
+            }
+            flutterDaemon = new flutter_daemon_1.FlutterDaemon(logger, workspaceContext, flutterCapabilities, runIfNoDevices, portFromLocalExtension);
+            deviceManager = new device_manager_1.FlutterDeviceManager(logger, flutterDaemon, config_1.config, workspaceContext, runIfNoDevices, portFromLocalExtension);
             context.subscriptions.push(deviceManager);
             context.subscriptions.push(flutterDaemon);
             (0, daemon_message_handler_1.setUpDaemonMessageHandler)(logger, context, flutterDaemon);
@@ -12754,7 +12783,7 @@ function activate(context, isRestart = false) {
         const testDiscoverer = lspAnalyzer ? new test_discoverer_1.TestDiscoverer(logger, lspAnalyzer.fileTracker, testModel) : undefined;
         if (testDiscoverer)
             context.subscriptions.push(testDiscoverer);
-        const vsCodeTestController = ((_a = vs.tests) === null || _a === void 0 ? void 0 : _a.createTestController) !== undefined // Feature-detect for Theia
+        const vsCodeTestController = ((_d = vs.tests) === null || _d === void 0 ? void 0 : _d.createTestController) !== undefined // Feature-detect for Theia
             ? new vs_test_controller_1.VsCodeTestController(logger, testModel, testDiscoverer)
             : undefined;
         if (vsCodeTestController)
@@ -12765,7 +12794,7 @@ function activate(context, isRestart = false) {
         context.subscriptions.push(vs.debug.registerDebugConfigurationProvider("dart", debugProvider));
         const debugLogger = new debug_adapter_logger_factory_1.DartDebugAdapterLoggerFactory(logger);
         context.subscriptions.push(vs.debug.registerDebugAdapterTrackerFactory("dart", debugLogger));
-        const debugAdapterDescriptorFactory = new debug_adapter_descriptor_factory_1.DartDebugAdapterDescriptorFactory(sdks, logger, extContext, dartCapabilities, flutterCapabilities, workspaceContext, experiments);
+        const debugAdapterDescriptorFactory = new debug_adapter_descriptor_factory_1.DartDebugAdapterDescriptorFactory(analytics, sdks, logger, extContext, dartCapabilities, flutterCapabilities, workspaceContext, experiments);
         context.subscriptions.push(vs.debug.registerDebugAdapterDescriptorFactory("dart", debugAdapterDescriptorFactory));
         // Also the providers for the initial configs.
         if (vs.DebugConfigurationProviderTriggerKind) { // Temporary workaround for GitPod/Theia not having this enum.
@@ -13209,7 +13238,7 @@ const utils_3 = __webpack_require__(8779);
 const misc_1 = __webpack_require__(9106);
 const processes_1 = __webpack_require__(5430);
 class FlutterDaemon extends stdio_service_1.StdIOService {
-    constructor(logger, workspaceContext, flutterCapabilities, runIfNoDevices) {
+    constructor(logger, workspaceContext, flutterCapabilities, runIfNoDevices, portFromLocalExtension) {
         var _a;
         super(new logging_1.CategoryLogger(logger, enums_1.LogCategory.FlutterDaemon), config_1.config.maxLogLineLength, true, true);
         this.workspaceContext = workspaceContext;
@@ -13240,7 +13269,10 @@ class FlutterDaemon extends stdio_service_1.StdIOService {
             daemonArgs.push("--show-web-server-device");
         if (process.env.DART_CODE_IS_TEST_RUN)
             daemonArgs.push("--show-test-device");
-        if (workspaceContext.config.forceFlutterWorkspace && config_1.config.daemonPort) {
+        if (portFromLocalExtension) {
+            this.createNcProcess(portFromLocalExtension);
+        }
+        else if (workspaceContext.config.forceFlutterWorkspace && config_1.config.daemonPort) {
             this.createNcProcess(config_1.config.daemonPort);
         }
         else {
@@ -16474,7 +16506,8 @@ const enums_1 = __webpack_require__(7341);
 const debug_1 = __webpack_require__(2335);
 const config_1 = __webpack_require__(4165);
 class DartDebugAdapterDescriptorFactory {
-    constructor(sdks, logger, extensionContext, dartCapabilities, flutterCapabilities, workspaceContext, experiments) {
+    constructor(analytics, sdks, logger, extensionContext, dartCapabilities, flutterCapabilities, workspaceContext, experiments) {
+        this.analytics = analytics;
         this.sdks = sdks;
         this.logger = logger;
         this.extensionContext = extensionContext;
@@ -16484,10 +16517,10 @@ class DartDebugAdapterDescriptorFactory {
         this.experiments = experiments;
     }
     createDebugAdapterDescriptor(session, executable) {
-        return this.descriptorForType(session.configuration.debuggerType);
+        return this.descriptorForType(session.configuration.debuggerType, !!session.configuration.noDebug);
     }
-    descriptorForType(debuggerType) {
-        var _a, _b;
+    descriptorForType(debuggerType, noDebug) {
+        var _a, _b, _c;
         const debuggerName = (0, debug_1.getDebugAdapterName)(debuggerType);
         this.logger.info(`Using ${debuggerName} debugger for ${enums_1.DebuggerType[debuggerType]}`);
         const isDartOrDartTest = debuggerType === enums_1.DebuggerType.Dart || debuggerType === enums_1.DebuggerType.DartTest;
@@ -16496,15 +16529,18 @@ class DartDebugAdapterDescriptorFactory {
         const isDartTest = debuggerType === enums_1.DebuggerType.DartTest;
         const isFlutterTest = debuggerType === enums_1.DebuggerType.FlutterTest;
         let isSdkDapSupported = false;
-        if (isDartOrDartTest)
-            isSdkDapSupported = this.dartCapabilities.supportsSdkDap;
-        else if (isFlutterOrFlutterTest)
-            isSdkDapSupported = this.flutterCapabilities.supportsSdkDap;
         let canDefaultToSdkDap = false;
-        if (isDartOrDartTest)
+        let isPreReleaseSdk = false;
+        if (isDartOrDartTest) {
+            isSdkDapSupported = this.dartCapabilities.supportsSdkDap;
             canDefaultToSdkDap = this.dartCapabilities.canDefaultSdkDaps;
-        else if (isFlutterOrFlutterTest)
+            isPreReleaseSdk = this.dartCapabilities.version.includes("-");
+        }
+        else if (isFlutterOrFlutterTest) {
+            isSdkDapSupported = this.flutterCapabilities.supportsSdkDap;
             canDefaultToSdkDap = this.flutterCapabilities.canDefaultSdkDaps;
+            isPreReleaseSdk = this.flutterCapabilities.version.includes("-");
+        }
         const forceSdkDap = process.env.DART_CODE_FORCE_SDK_DAP === "true"
             ? true
             : process.env.DART_CODE_FORCE_SDK_DAP === "false"
@@ -16529,6 +16565,10 @@ class DartDebugAdapterDescriptorFactory {
                 useSdkDap = config_1.config.previewSdkDaps;
                 sdkDapReason = "config.previewSdkDaps";
             }
+            else if (canDefaultToSdkDap && isPreReleaseSdk) {
+                useSdkDap = true;
+                sdkDapReason = "canDefaultToSdkDap and using pre-release SDK";
+            }
             else {
                 useSdkDap = this.experiments.sdkDaps.applies;
                 sdkDapReason = "sdkDaps experiment";
@@ -16539,10 +16579,11 @@ class DartDebugAdapterDescriptorFactory {
             }
         }
         this.logger.info(`SDK DAP setting is ${useSdkDap}, set by ${sdkDapReason}`);
+        this.analytics.logDebuggerStart(enums_1.DebuggerType[debuggerType], noDebug ? "Run" : "Debug", (_a = config_1.config.previewSdkDaps) !== null && _a !== void 0 ? _a : this.dartCapabilities.canDefaultSdkDaps);
         if (useSdkDap) {
             const executable = isDartOrDartTest
                 ? path.join(this.sdks.dart, constants_1.dartVMPath)
-                : (_b = (_a = this.workspaceContext.config.flutterToolsScript) === null || _a === void 0 ? void 0 : _a.script) !== null && _b !== void 0 ? _b : (this.sdks.flutter ? path.join(this.sdks.flutter, constants_1.flutterPath) : constants_1.executableNames.flutter);
+                : (_c = (_b = this.workspaceContext.config.flutterToolsScript) === null || _b === void 0 ? void 0 : _b.script) !== null && _c !== void 0 ? _c : (this.sdks.flutter ? path.join(this.sdks.flutter, constants_1.flutterPath) : constants_1.executableNames.flutter);
             const args = ["debug_adapter"];
             if (isDartTestOrFlutterTest)
                 args.push("--test");
@@ -16708,7 +16749,7 @@ class DebugConfigProvider {
         return matches ? matches[0] : undefined;
     }
     resolveDebugConfigurationWithSubstitutedVariables(folder, debugConfig, token) {
-        var _a, _b, _c, _d;
+        var _a, _b, _c;
         return __awaiter(this, void 0, void 0, function* () {
             (0, utils_4.ensureDebugLaunchUniqueId)(debugConfig);
             const isAttachRequest = debugConfig.request === "attach";
@@ -16728,17 +16769,30 @@ class DebugConfigProvider {
                 // Warning is shown from inside warnOnUnresolvedVariables.
                 return null; // null means open launch.json.
             }
-            if (openFile && !folder) {
+            let defaultCwd = folder ? (0, fs_1.fsPath)(folder.uri) : undefined;
+            if (openFile && !defaultCwd) {
                 folder = vscode_1.workspace.getWorkspaceFolder(vscode_1.Uri.file(openFile));
-                if (folder)
-                    logger.info(`Setting workspace based on open file: ${(0, fs_1.fsPath)(folder.uri)}`);
+                if (folder) {
+                    defaultCwd = (0, fs_1.fsPath)(folder.uri);
+                    logger.info(`Setting folder/defaultCwd based on open file: ${defaultCwd}`);
+                }
             }
-            else if (!folder && vs.workspace.workspaceFolders && vs.workspace.workspaceFolders.length === 1) {
-                folder = vs.workspace.workspaceFolders[0];
-                if (folder)
-                    logger.info(`Setting workspace based on single open workspace: ${(0, fs_1.fsPath)(folder.uri)}`);
+            else if (!folder && vs.workspace.workspaceFolders && vs.workspace.workspaceFolders.length >= 1) {
+                if (vs.workspace.workspaceFolders.length === 1) {
+                    folder = vs.workspace.workspaceFolders[0];
+                    defaultCwd = (0, fs_1.fsPath)(folder.uri);
+                    logger.info(`Setting folder/defaultCwd based single open folder: ${defaultCwd}`);
+                }
+                else {
+                    const workspaceFolderPaths = vs.workspace.workspaceFolders.map((wf) => (0, fs_1.fsPath)(wf.uri));
+                    defaultCwd = (0, fs_1.findCommonAncestorFolder)(workspaceFolderPaths);
+                }
+                if (defaultCwd)
+                    logger.info(`Setting defaultCwd based on common ancestor of open folders: ${defaultCwd}`);
+                else
+                    logger.info(`Unable to infer defaultCwd from open workspace (no common ancestor)`);
             }
-            this.configureProgramAndCwd(debugConfig, folder, openFile);
+            this.configureProgramAndCwd(debugConfig, defaultCwd, openFile);
             // If we still don't have an entry point, the user will have to provide it.
             if (!isAttachRequest && !debugConfig.program) {
                 this.logger.warn("No program was set in launch config");
@@ -16865,7 +16919,6 @@ class DebugConfigProvider {
                 : false;
             if (!didWarnAboutCwd && debugConfig.program && path.isAbsolute(debugConfig.program))
                 (0, utils_3.warnIfPathCaseMismatch)(logger, debugConfig.program, "the launch script", "check the 'program' field in your launch configuration file (.vscode/launch.json)");
-            this.analytics.logDebuggerStart(folder && folder.uri, enums_1.DebuggerType[debugType], debugConfig.noDebug ? "Run" : "Debug", (_d = config_1.config.previewSdkDaps) !== null && _d !== void 0 ? _d : this.dartCapabilities.canDefaultSdkDaps);
             if (debugType === enums_1.DebuggerType.FlutterTest /* || debugType === DebuggerType.WebTest */ || debugType === enums_1.DebuggerType.DartTest) {
                 const suitePaths = (0, utils_4.isTestFolder)(debugConfig.program)
                     ? Object.values(this.testModel.suites)
@@ -16990,15 +17043,15 @@ class DebugConfigProvider {
         logger.info(`Using ${enums_1.DebuggerType[debugType]} debug adapter for this session`);
         return debugType;
     }
-    configureProgramAndCwd(debugConfig, folder, openFile) {
+    configureProgramAndCwd(debugConfig, defaultCwd, openFile) {
         const isAttachRequest = debugConfig.request === "attach";
         // Convert to an absolute paths (if possible).
-        if (debugConfig.cwd && !path.isAbsolute(debugConfig.cwd) && folder) {
-            debugConfig.cwd = path.join((0, fs_1.fsPath)(folder.uri), debugConfig.cwd);
+        if (debugConfig.cwd && !path.isAbsolute(debugConfig.cwd) && defaultCwd) {
+            debugConfig.cwd = path.join(defaultCwd, debugConfig.cwd);
             this.logger.info(`Converted cwd to absolute path: ${debugConfig.cwd}`);
         }
-        if (debugConfig.program && !path.isAbsolute(debugConfig.program) && (debugConfig.cwd || folder)) {
-            debugConfig.program = path.join(debugConfig.cwd || (0, fs_1.fsPath)(folder.uri), debugConfig.program);
+        if (debugConfig.program && !path.isAbsolute(debugConfig.program) && (debugConfig.cwd || defaultCwd)) {
+            debugConfig.program = path.join(debugConfig.cwd || defaultCwd, debugConfig.program);
             this.logger.info(`Converted program to absolute path: ${debugConfig.program}`);
         }
         if (!isAttachRequest) {
@@ -17006,22 +17059,20 @@ class DebugConfigProvider {
             if (!debugConfig.program) {
                 const preferredFolder = debugConfig.cwd
                     ? debugConfig.cwd
-                    : folder
-                        ? (0, fs_1.fsPath)(folder.uri)
-                        : undefined;
+                    : defaultCwd;
                 // If we have a folder specified, we should only consider open files if it's inside it.
                 const preferredFile = !preferredFolder || (!!openFile && (0, fs_1.isWithinPath)(openFile, preferredFolder)) ? openFile : undefined;
                 debugConfig.program = debugConfig.program || this.guessBestEntryPoint(preferredFile, preferredFolder);
             }
         }
         // If we don't have a cwd then find the best one from the project root.
-        if (!debugConfig.cwd && folder) {
-            debugConfig.cwd = (0, fs_1.fsPath)(folder.uri);
+        if (!debugConfig.cwd && defaultCwd) {
+            debugConfig.cwd = defaultCwd;
             this.logger.info(`Using workspace as cwd: ${debugConfig.cwd}`);
             // If we have an entry point, see if we can make this more specific by finding a project root.
             if (debugConfig.program) {
                 const bestProjectRoot = (0, project_1.locateBestProjectRoot)(debugConfig.program);
-                if (bestProjectRoot && (0, fs_1.isWithinPath)(bestProjectRoot, (0, fs_1.fsPath)(folder.uri))) {
+                if (bestProjectRoot && (0, fs_1.isWithinPath)(bestProjectRoot, defaultCwd)) {
                     debugConfig.cwd = bestProjectRoot;
                     this.logger.info(`Found better project root to use as cwd: ${debugConfig.cwd}`);
                 }
@@ -17114,11 +17165,12 @@ class DebugConfigProvider {
             }
             debugConfig.toolEnv = (0, processes_1.getToolEnv)();
             debugConfig.sendLogsToClient = true;
+            debugConfig.sendCustomProgressEvents = true;
             debugConfig.cwd = debugConfig.cwd || (folder && (0, fs_1.fsPath)(folder.uri));
             debugConfig.additionalProjectPaths = debugConfig.additionalProjectPaths || ((_a = vs.workspace.workspaceFolders) === null || _a === void 0 ? void 0 : _a.map((wf) => (0, fs_1.fsPath)(wf.uri)));
             debugConfig.args = debugConfig.args || [];
             debugConfig.vmAdditionalArgs = debugConfig.vmAdditionalArgs || conf.vmAdditionalArgs;
-            debugConfig.toolArgs = yield this.buildToolArgs(debugType, debugConfig, conf);
+            debugConfig.toolArgs = yield this.buildToolArgs(debugType, debugConfig, conf, deviceManager === null || deviceManager === void 0 ? void 0 : deviceManager.daemonPortOverride);
             debugConfig.vmServicePort = (_b = debugConfig.vmServicePort) !== null && _b !== void 0 ? _b : 0;
             debugConfig.dartSdkPath = this.wsContext.sdks.dart;
             debugConfig.vmServiceLogFile = this.insertSessionName(debugConfig, debugConfig.vmServiceLogFile || conf.vmServiceLogFile);
@@ -17167,7 +17219,7 @@ class DebugConfigProvider {
     /// All arguments built here should be things that user the recognises based on the app they are trying to launch
     /// or settings they have configured. It should not include things that are specifically required by the debugger
     /// (for example, enabling the VM Service or starting paused). Those items should be handled inside the Debug Adapter.
-    buildToolArgs(debugType, debugConfig, conf) {
+    buildToolArgs(debugType, debugConfig, conf, portFromLocalExtension) {
         var _a;
         return __awaiter(this, void 0, void 0, function* () {
             let args = [];
@@ -17221,7 +17273,7 @@ class DebugConfigProvider {
         });
     }
     buildFlutterToolArgs(debugConfig, conf) {
-        var _a;
+        var _a, _b, _c;
         return __awaiter(this, void 0, void 0, function* () {
             const args = [];
             const isDebug = debugConfig.noDebug !== true;
@@ -17264,14 +17316,15 @@ class DebugConfigProvider {
                     if (renderer)
                         this.addArgsIfNotExist(args, "--web-renderer", renderer);
                 }
-                if (this.wsContext.config.forceFlutterWorkspace && conf.daemonPort) {
-                    this.addArgsIfNotExist(args, "--daemon-connection-port", conf.daemonPort.toString());
+                const daemonPort = (_b = (_a = this.deviceManager) === null || _a === void 0 ? void 0 : _a.daemonPortOverride) !== null && _b !== void 0 ? _b : conf.daemonPort;
+                if (this.wsContext.config.forceFlutterWorkspace && daemonPort) {
+                    this.addArgsIfNotExist(args, "--daemon-connection-port", daemonPort.toString());
                 }
             }
             if (config_1.config.shareDevToolsWithFlutter && this.flutterCapabilities.supportsDevToolsServerAddress && !args.includes("--devtools-server-address")) {
                 this.logger.info("Getting DevTools server address to pass to Flutter...");
                 try {
-                    const devtoolsUrl = yield ((_a = this.debugCommands.devTools) === null || _a === void 0 ? void 0 : _a.devtoolsUrl);
+                    const devtoolsUrl = yield ((_c = this.debugCommands.devTools) === null || _c === void 0 ? void 0 : _c.devtoolsUrl);
                     if (devtoolsUrl)
                         this.addArgsIfNotExist(args, "--devtools-server-address", devtoolsUrl.toString());
                     else if (!constants_1.isDartCodeTestRun) // Suppress warning on test runs as they're fast and can launch before the server starts
@@ -20340,13 +20393,12 @@ function showUserPrompts(logger, context, webClient, analytics, workspaceContext
             // If we've not got a stored version, this is the first install, so just
             // stash the current version and don't show anything.
             context.lastSeenVersion = extension_utils_1.extensionVersion;
-            // } else if (!isDevExtension && !isPreReleaseExtension && lastSeenVersionNotification !== extensionVersion) {
-            // 	const versionLink = extensionVersion.split(".").slice(0, 2).join(".").replace(".", "-");
-            // 	// tslint:disable-next-line: no-floating-promises
-            // 	promptToShowReleaseNotes(extensionVersion, versionLink).then(() =>
-            // 		context.lastSeenVersion = extensionVersion,
-            // 	);
-            // 	return;
+        }
+        else if (!extension_utils_1.isDevExtension && !extension_utils_1.isPreReleaseExtension && lastSeenVersionNotification !== extension_utils_1.extensionVersion) {
+            const versionLink = extension_utils_1.extensionVersion.split(".").slice(0, 2).join(".").replace(".", "-");
+            // tslint:disable-next-line: no-floating-promises
+            promptToShowReleaseNotes(extension_utils_1.extensionVersion, versionLink).then(() => context.lastSeenVersion = extension_utils_1.extensionVersion);
+            return;
         }
         if (workspaceContext.hasAnyFlutterProjects) {
             if (yield (0, user_prompts_1.showFlutterSurveyNotificationIfAppropriate)(context, webClient, analytics, utils_1.envUtils.openInBrowser, Date.now(), logger))
@@ -20958,7 +21010,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.runToolProcess = exports.safeToolSpawn = exports.setupToolEnv = exports.getGlobalFlutterArgs = exports.getToolEnv = void 0;
 const processes_1 = __webpack_require__(5837);
 // Environment used when spawning Dart and Flutter processes.
-let toolEnv = /* { [key: string]: string | undefined } */ {};
+let toolEnv = {};
 let globalFlutterArgs = [];
 function getToolEnv() {
     return toolEnv;
@@ -21640,13 +21692,22 @@ exports.Analyzer = Analyzer;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.DartCapabilities = void 0;
 const utils_1 = __webpack_require__(4586);
+const constants_1 = __webpack_require__(5628);
 class DartCapabilities {
     constructor(dartVersion) {
         this.version = dartVersion;
     }
     static get empty() { return new DartCapabilities("0.0.0"); }
     get canDefaultLsp() { return (0, utils_1.versionIsAtLeast)(this.version, "2.12.0-0"); }
-    get canDefaultSdkDaps() { return (0, utils_1.versionIsAtLeast)(this.version, "2.18.0-0"); }
+    get canDefaultSdkDaps() {
+        // For Windows, we need a higher version.
+        // https://github.com/Dart-Code/Dart-Code/issues/4149
+        // https://github.com/dart-lang/sdk/commit/1b9adcb502c5e4ec1bc5ce8e8b0387db25216833
+        if (constants_1.isWin)
+            return (0, utils_1.versionIsAtLeast)(this.version, "2.19.0-196");
+        else
+            return (0, utils_1.versionIsAtLeast)(this.version, "2.18.0-0");
+    }
     // This is also missing in v2.10, but assume it will be back in v2.11.
     // https://github.com/dart-lang/sdk/issues/43207
     get includesSourceForSdkLibs() { return (0, utils_1.versionIsAtLeast)(this.version, "2.2.1") && !this.version.startsWith("2.10."); }
@@ -21718,10 +21779,7 @@ class FlutterCapabilities {
         this.version = flutterVersion;
     }
     static get empty() { return new FlutterCapabilities("0.0.0"); }
-    // Disabled due to https://github.com/flutter/flutter/issues/111045.
-    // Needs re-enabling for Flutter versions that are using a version of DDS that
-    // contains https://github.com/dart-lang/sdk/commit/94a64a01f630e4a96b6b3cf3ec3c9a6b3f5f3445
-    get canDefaultSdkDaps() { return (0, utils_1.versionIsAtLeast)(this.version, "9.9.9"); }
+    get canDefaultSdkDaps() { return (0, utils_1.versionIsAtLeast)(this.version, "3.4.0-33"); }
     get supportsCreateSkeleton() { return (0, utils_1.versionIsAtLeast)(this.version, "2.5.0"); }
     get supportsCreatingSamples() { return (0, utils_1.versionIsAtLeast)(this.version, "1.0.0"); }
     get hasLatestStructuredErrorsWork() { return (0, utils_1.versionIsAtLeast)(this.version, "1.21.0-5.0"); }
@@ -21738,8 +21796,8 @@ class FlutterCapabilities {
     get supportsDevToolsServerAddress() { return (0, utils_1.versionIsAtLeast)(this.version, "1.26.0-12"); }
     get supportsRunningIntegrationTests() { return (0, utils_1.versionIsAtLeast)(this.version, "2.2.0-10"); }
     get supportsSdkDap() { return (0, utils_1.versionIsAtLeast)(this.version, "2.13.0-0"); }
-    get supportsEnvInSdkDAP() { return (0, utils_1.versionIsAtLeast)(this.version, "3.3.0"); }
-    get supportsWebInSdkDAP() { return (0, utils_1.versionIsAtLeast)(this.version, "3.3.0"); }
+    get supportsEnvInSdkDAP() { return (0, utils_1.versionIsAtLeast)(this.version, "3.4.0-18"); }
+    get supportsWebInSdkDAP() { return (0, utils_1.versionIsAtLeast)(this.version, "3.4.0-18"); }
     get requiresDdsDisabledForSdkDapTestRuns() { return !(0, utils_1.versionIsAtLeast)(this.version, "3.1.0"); }
     // TODO: Update these (along with Dart) when supported.
     get webSupportsEvaluation() { return false; }
@@ -21799,9 +21857,9 @@ exports.vsCodeVersion = new CodeCapabilities(vscode_1.version);
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.openAction = exports.wantToTryDevToolsPrompt = exports.issueTrackerUri = exports.issueTrackerAction = exports.stagehandInstallationInstructionsUrl = exports.pubGlobalDocsUrl = exports.debugTerminatingProgressId = exports.debugLaunchProgressId = exports.restartReasonSave = exports.restartReasonManual = exports.showLogAction = exports.stopLoggingAction = exports.IS_RUNNING_LOCALLY_CONTEXT = exports.PUB_OUTDATED_SUPPORTED_CONTEXT = exports.DART_IS_CAPTURING_LOGS_CONTEXT = exports.DART_DEP_FILE_NODE_CONTEXT = exports.DART_DEP_FOLDER_NODE_CONTEXT = exports.DART_DEP_TRANSITIVE_DEPENDENCY_PACKAGE_NODE_CONTEXT = exports.DART_DEP_DEV_DEPENDENCY_PACKAGE_NODE_CONTEXT = exports.DART_DEP_DEPENDENCY_PACKAGE_NODE_CONTEXT = exports.DART_DEP_PACKAGE_NODE_CONTEXT = exports.DART_DEP_TRANSITIVE_DEPENDENCIES_NODE_CONTEXT = exports.DART_DEP_DEV_DEPENDENCIES_NODE_CONTEXT = exports.DART_DEP_DEPENDENCIES_NODE_CONTEXT = exports.DART_DEP_PROJECT_NODE_CONTEXT = exports.IS_LSP_CONTEXT = exports.FLUTTER_DOWNLOAD_URL = exports.DART_DOWNLOAD_URL = exports.androidStudioPaths = exports.analyzerSnapshotPath = exports.pubSnapshotPath = exports.flutterPath = exports.pubPath = exports.dartDocPath = exports.dartVMPath = exports.getExecutableName = exports.executableNames = exports.androidStudioExecutableNames = exports.platformEol = exports.platformDisplayName = exports.dartPlatformName = exports.isChromeOS = exports.isLinux = exports.isMac = exports.isWin = exports.isDartCodeTestRun = exports.isCI = exports.debugAdapterPath = exports.flutterExtensionIdentifier = exports.dartCodeExtensionIdentifier = void 0;
-exports.validMethodNameRegex = exports.cancelAction = exports.runFlutterCreatePrompt = exports.vmServiceHttpLinkPattern = exports.vmServiceListeningBannerPattern = exports.reactivateDevToolsAction = exports.openSettingsAction = exports.recommendedSettingsUrl = exports.showRecommendedSettingsAction = exports.iUnderstandAction = exports.skipAction = exports.noAction = exports.yesAction = exports.useRecommendedSettingsPromptKey = exports.installFlutterExtensionPromptKey = exports.userPromptContextPrefix = exports.debugAnywayAction = exports.showErrorsAction = exports.isInFlutterReleaseModeDebugSessionContext = exports.isInFlutterProfileModeDebugSessionContext = exports.isInFlutterDebugModeDebugSessionContext = exports.HAS_LAST_TEST_DEBUG_CONFIG = exports.HAS_LAST_DEBUG_CONFIG = exports.REFACTOR_ANYWAY = exports.REFACTOR_FAILED_DOC_MODIFIED = exports.FLUTTER_CREATE_PROJECT_TRIGGER_FILE = exports.DART_CREATE_PROJECT_TRIGGER_FILE = exports.CHROME_OS_VM_SERVICE_PORT = exports.CHROME_OS_DEVTOOLS_PORT = exports.projectSearchCacheTimeInMs = exports.projectSearchProgressNotificationDelayInMs = exports.projectSearchProgressText = exports.pleaseReportBug = exports.longRepeatPromptThreshold = exports.noRepeatPromptThreshold = exports.fortyHoursInMs = exports.twentyHoursInMs = exports.twoHoursInMs = exports.twentyMinutesInMs = exports.tenMinutesInMs = exports.fiveMinutesInMs = exports.initializingFlutterMessage = exports.modifyingFilesOutsideWorkspaceInfoUrl = exports.skipThisSurveyAction = exports.takeSurveyAction = exports.flutterSurveyDataUrl = exports.moreInfoAction = exports.doNotAskAgainAction = exports.notTodayAction = exports.alwaysOpenAction = void 0;
-exports.MAX_VERSION = exports.defaultLaunchJson = exports.dartRecommendedConfig = exports.devToolsPages = exports.performancePage = exports.cpuProfilerPage = exports.widgetInspectorPage = exports.validClassNameRegex = void 0;
+exports.wantToTryDevToolsPrompt = exports.issueTrackerUri = exports.issueTrackerAction = exports.stagehandInstallationInstructionsUrl = exports.pubGlobalDocsUrl = exports.debugTerminatingProgressId = exports.debugLaunchProgressId = exports.restartReasonSave = exports.restartReasonManual = exports.captureLogsMaxLineLength = exports.showLogAction = exports.stopLoggingAction = exports.IS_RUNNING_LOCALLY_CONTEXT = exports.PUB_OUTDATED_SUPPORTED_CONTEXT = exports.DART_IS_CAPTURING_LOGS_CONTEXT = exports.DART_DEP_FILE_NODE_CONTEXT = exports.DART_DEP_FOLDER_NODE_CONTEXT = exports.DART_DEP_TRANSITIVE_DEPENDENCY_PACKAGE_NODE_CONTEXT = exports.DART_DEP_DEV_DEPENDENCY_PACKAGE_NODE_CONTEXT = exports.DART_DEP_DEPENDENCY_PACKAGE_NODE_CONTEXT = exports.DART_DEP_PACKAGE_NODE_CONTEXT = exports.DART_DEP_TRANSITIVE_DEPENDENCIES_NODE_CONTEXT = exports.DART_DEP_DEV_DEPENDENCIES_NODE_CONTEXT = exports.DART_DEP_DEPENDENCIES_NODE_CONTEXT = exports.DART_DEP_PROJECT_NODE_CONTEXT = exports.IS_LSP_CONTEXT = exports.FLUTTER_DOWNLOAD_URL = exports.DART_DOWNLOAD_URL = exports.androidStudioPaths = exports.analyzerSnapshotPath = exports.pubSnapshotPath = exports.flutterPath = exports.pubPath = exports.dartDocPath = exports.dartVMPath = exports.getExecutableName = exports.executableNames = exports.androidStudioExecutableNames = exports.platformEol = exports.platformDisplayName = exports.dartPlatformName = exports.isChromeOS = exports.isLinux = exports.isMac = exports.isWin = exports.isDartCodeTestRun = exports.isCI = exports.debugAdapterPath = exports.flutterExtensionIdentifier = exports.dartCodeExtensionIdentifier = void 0;
+exports.cancelAction = exports.runFlutterCreatePrompt = exports.vmServiceHttpLinkPattern = exports.vmServiceListeningBannerPattern = exports.reactivateDevToolsAction = exports.openSettingsAction = exports.recommendedSettingsUrl = exports.showRecommendedSettingsAction = exports.iUnderstandAction = exports.skipAction = exports.noAction = exports.yesAction = exports.useRecommendedSettingsPromptKey = exports.installFlutterExtensionPromptKey = exports.userPromptContextPrefix = exports.debugAnywayAction = exports.showErrorsAction = exports.isInFlutterReleaseModeDebugSessionContext = exports.isInFlutterProfileModeDebugSessionContext = exports.isInFlutterDebugModeDebugSessionContext = exports.HAS_LAST_TEST_DEBUG_CONFIG = exports.HAS_LAST_DEBUG_CONFIG = exports.REFACTOR_ANYWAY = exports.REFACTOR_FAILED_DOC_MODIFIED = exports.FLUTTER_CREATE_PROJECT_TRIGGER_FILE = exports.DART_CREATE_PROJECT_TRIGGER_FILE = exports.CHROME_OS_VM_SERVICE_PORT = exports.CHROME_OS_DEVTOOLS_PORT = exports.projectSearchCacheTimeInMs = exports.projectSearchProgressNotificationDelayInMs = exports.projectSearchProgressText = exports.pleaseReportBug = exports.longRepeatPromptThreshold = exports.noRepeatPromptThreshold = exports.fortyHoursInMs = exports.twentyHoursInMs = exports.twoHoursInMs = exports.twentyMinutesInMs = exports.tenMinutesInMs = exports.fiveMinutesInMs = exports.initializingFlutterMessage = exports.modifyingFilesOutsideWorkspaceInfoUrl = exports.skipThisSurveyAction = exports.takeSurveyAction = exports.flutterSurveyDataUrl = exports.moreInfoAction = exports.doNotAskAgainAction = exports.notTodayAction = exports.alwaysOpenAction = exports.openAction = void 0;
+exports.MAX_VERSION = exports.defaultLaunchJson = exports.dartRecommendedConfig = exports.devToolsPages = exports.performancePage = exports.cpuProfilerPage = exports.widgetInspectorPage = exports.validClassNameRegex = exports.validMethodNameRegex = void 0;
 const fs = __webpack_require__(7147);
 const utils_1 = __webpack_require__(4586);
 exports.dartCodeExtensionIdentifier = "Dart-Code.dart-code";
@@ -21852,6 +21910,7 @@ exports.PUB_OUTDATED_SUPPORTED_CONTEXT = "dart-code:pubOutdatedSupported";
 exports.IS_RUNNING_LOCALLY_CONTEXT = "dart-code:isRunningLocally";
 exports.stopLoggingAction = "Stop Logging";
 exports.showLogAction = "Show Log";
+exports.captureLogsMaxLineLength = 999999999;
 exports.restartReasonManual = "manual";
 exports.restartReasonSave = "save";
 exports.debugLaunchProgressId = "launch";
@@ -24766,7 +24825,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.disposeAll = exports.isWebDevice = exports.escapeDartString = exports.generateTestNameFromFileName = exports.clamp = exports.asHex = exports.asHexColor = exports.notNullOrUndefined = exports.notNull = exports.notUndefined = exports.nullToUndefined = exports.BufferedLogger = exports.errorString = exports.usingCustomScript = exports.isStableSdk = exports.pubVersionIsAtLeast = exports.versionIsAtLeast = exports.isDartSdkFromFlutter = exports.uriToFilePath = exports.findFileInAncestor = exports.PromiseCompleter = exports.escapeRegExp = exports.filenameSafe = exports.flatMapAsync = exports.flatMap = exports.uniq = void 0;
+exports.withTimeout = exports.disposeAll = exports.isWebDevice = exports.escapeDartString = exports.generateTestNameFromFileName = exports.clamp = exports.asHex = exports.asHexColor = exports.notNullOrUndefined = exports.notNull = exports.notUndefined = exports.nullToUndefined = exports.BufferedLogger = exports.errorString = exports.usingCustomScript = exports.isStableSdk = exports.pubVersionIsAtLeast = exports.versionIsAtLeast = exports.isDartSdkFromFlutter = exports.uriToFilePath = exports.findFileInAncestor = exports.PromiseCompleter = exports.escapeRegExp = exports.filenameSafe = exports.flatMapAsync = exports.flatMap = exports.uniq = void 0;
 const fs = __webpack_require__(7147);
 const path = __webpack_require__(1017);
 const semver = __webpack_require__(1249);
@@ -24989,6 +25048,24 @@ function disposeAll(disposables) {
     }
 }
 exports.disposeAll = disposeAll;
+function withTimeout(promise, message, seconds = 360) {
+    return __awaiter(this, void 0, void 0, function* () {
+        return new Promise((resolve, reject) => {
+            // Set a timeout to reject the promise after the timeout period.
+            const timeoutTimer = setTimeout(() => {
+                const msg = typeof message === "string" ? message : message();
+                reject(new Error(`${msg} within ${seconds}s`));
+            }, seconds * 1000);
+            // When the main promise completes, cancel the timeout and return its result.
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises
+            promise.then((result) => {
+                clearTimeout(timeoutTimer);
+                resolve(result);
+            });
+        });
+    });
+}
+exports.withTimeout = withTimeout;
 
 
 /***/ }),
@@ -25388,7 +25465,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.nextAvailableFilename = exports.normalizeSlashes = exports.areSameFolder = exports.mkDirRecursive = exports.getRandomInt = exports.tryDeleteFile = exports.getSdkVersion = exports.findProjectFolders = exports.resolveTildePaths = exports.extractFlutterSdkPathFromPackagesFile = exports.referencesBuildRunner = exports.pubspecContentReferencesFlutterSdk = exports.projectReferencesFlutterSdk = exports.isFlutterProjectFolder = exports.isFlutterRepoAsync = exports.hasCreateTriggerFileAsync = exports.hasPubspecAsync = exports.hasPubspec = exports.hasPackageMapFile = exports.readDirAsync = exports.getChildFolders = exports.isEqualOrWithinPath = exports.isWithinPathOrEqual = exports.isWithinPath = exports.forceWindowsDriveLetterToUppercase = exports.fsPath = void 0;
+exports.nextAvailableFilename = exports.normalizeSlashes = exports.areSameFolder = exports.mkDirRecursive = exports.getRandomInt = exports.tryDeleteFile = exports.getSdkVersion = exports.findProjectFolders = exports.resolveTildePaths = exports.extractFlutterSdkPathFromPackagesFile = exports.referencesBuildRunner = exports.pubspecContentReferencesFlutterSdk = exports.projectReferencesFlutterSdk = exports.isFlutterProjectFolder = exports.isFlutterRepoAsync = exports.hasCreateTriggerFileAsync = exports.hasPubspecAsync = exports.hasPubspec = exports.hasPackageMapFile = exports.readDirAsync = exports.getChildFolders = exports.findCommonAncestorFolder = exports.isEqualOrWithinPath = exports.isWithinPathOrEqual = exports.isWithinPath = exports.forceWindowsDriveLetterToUppercase = exports.fsPath = void 0;
 const fs = __webpack_require__(7147);
 const os = __webpack_require__(2037);
 const path = __webpack_require__(1017);
@@ -25438,6 +25515,28 @@ function isEqualOrWithinPath(file, folder) {
     return relative === "" || (!!relative && !relative.startsWith("..") && !path.isAbsolute(relative));
 }
 exports.isEqualOrWithinPath = isEqualOrWithinPath;
+function findCommonAncestorFolder(folderPaths) {
+    if (!folderPaths.length)
+        return undefined;
+    const commonAncestorSegments = folderPaths[0].split(path.sep);
+    for (const folderPath of folderPaths.slice(1)) {
+        const pathSegments = folderPath.split(path.sep);
+        for (let i = 0; i < Math.min(commonAncestorSegments.length, pathSegments.length); i++) {
+            if (commonAncestorSegments[i] !== pathSegments[i]) {
+                commonAncestorSegments.splice(i);
+                break;
+            }
+        }
+        if (commonAncestorSegments.length > pathSegments.length) {
+            commonAncestorSegments.splice(pathSegments.length);
+        }
+    }
+    // If we got up to the root, consider that not a match.
+    if (commonAncestorSegments.length <= 1)
+        return undefined;
+    return commonAncestorSegments.join(path.sep);
+}
+exports.findCommonAncestorFolder = findCommonAncestorFolder;
 function getChildFolders(logger, parent, options) {
     return __awaiter(this, void 0, void 0, function* () {
         if (!fs.existsSync(parent))
@@ -26375,6 +26474,7 @@ function tryProcessBazelFlutterConfig(logger, config, bazelWorkspaceRoot) {
         config.flutterToolsScript = makeScript(flutterConfig.toolsScript);
         config.defaultDartSdk = makeFullPath(flutterConfig.defaultDartSdk);
         config.restartMacDaemonMessage = flutterConfig.restartMacDaemonMessage;
+        config.localDeviceCommandAdviceMessage = flutterConfig.localDeviceCommandAdviceMessage;
     }
     catch (e) {
         logger.error(e);
@@ -26592,11 +26692,12 @@ const array_1 = __webpack_require__(7434);
 const fs_1 = __webpack_require__(300);
 const utils_3 = __webpack_require__(7220);
 class FlutterDeviceManager {
-    constructor(logger, daemon, config, workspaceContext, runIfNoDevices) {
+    constructor(logger, daemon, config, workspaceContext, runIfNoDevices, daemonPortOverride) {
         this.logger = logger;
         this.daemon = daemon;
         this.config = config;
         this.workspaceContext = workspaceContext;
+        this.daemonPortOverride = daemonPortOverride;
         this.subscriptions = [];
         this.devices = [];
         this.emulators = [];
@@ -28161,8 +28262,8 @@ class WorkspaceEvents {
  * ------------------------------------------------------------------------------------------ */
 /// <reference path="../../typings/thenable.d.ts" />
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.SetTraceNotification = exports.TraceFormat = exports.Trace = exports.ProgressType = exports.ProgressToken = exports.createMessageConnection = exports.NullLogger = exports.ConnectionOptions = exports.ConnectionStrategy = exports.WriteableStreamMessageWriter = exports.AbstractMessageWriter = exports.MessageWriter = exports.ReadableStreamMessageReader = exports.AbstractMessageReader = exports.MessageReader = exports.CancellationToken = exports.CancellationTokenSource = exports.Emitter = exports.Event = exports.Disposable = exports.LRUCache = exports.Touch = exports.LinkedMap = exports.ParameterStructures = exports.NotificationType9 = exports.NotificationType8 = exports.NotificationType7 = exports.NotificationType6 = exports.NotificationType5 = exports.NotificationType4 = exports.NotificationType3 = exports.NotificationType2 = exports.NotificationType1 = exports.NotificationType0 = exports.NotificationType = exports.ErrorCodes = exports.ResponseError = exports.RequestType9 = exports.RequestType8 = exports.RequestType7 = exports.RequestType6 = exports.RequestType5 = exports.RequestType4 = exports.RequestType3 = exports.RequestType2 = exports.RequestType1 = exports.RequestType0 = exports.RequestType = exports.Message = exports.RAL = void 0;
-exports.CancellationStrategy = exports.CancellationSenderStrategy = exports.CancellationReceiverStrategy = exports.ConnectionError = exports.ConnectionErrors = exports.LogTraceNotification = void 0;
+exports.TraceFormat = exports.TraceValues = exports.Trace = exports.ProgressType = exports.ProgressToken = exports.createMessageConnection = exports.NullLogger = exports.ConnectionOptions = exports.ConnectionStrategy = exports.WriteableStreamMessageWriter = exports.AbstractMessageWriter = exports.MessageWriter = exports.ReadableStreamMessageReader = exports.AbstractMessageReader = exports.MessageReader = exports.CancellationToken = exports.CancellationTokenSource = exports.Emitter = exports.Event = exports.Disposable = exports.LRUCache = exports.Touch = exports.LinkedMap = exports.ParameterStructures = exports.NotificationType9 = exports.NotificationType8 = exports.NotificationType7 = exports.NotificationType6 = exports.NotificationType5 = exports.NotificationType4 = exports.NotificationType3 = exports.NotificationType2 = exports.NotificationType1 = exports.NotificationType0 = exports.NotificationType = exports.ErrorCodes = exports.ResponseError = exports.RequestType9 = exports.RequestType8 = exports.RequestType7 = exports.RequestType6 = exports.RequestType5 = exports.RequestType4 = exports.RequestType3 = exports.RequestType2 = exports.RequestType1 = exports.RequestType0 = exports.RequestType = exports.Message = exports.RAL = void 0;
+exports.CancellationStrategy = exports.CancellationSenderStrategy = exports.CancellationReceiverStrategy = exports.ConnectionError = exports.ConnectionErrors = exports.LogTraceNotification = exports.SetTraceNotification = void 0;
 const messages_1 = __webpack_require__(839);
 Object.defineProperty(exports, "Message", ({ enumerable: true, get: function () { return messages_1.Message; } }));
 Object.defineProperty(exports, "RequestType", ({ enumerable: true, get: function () { return messages_1.RequestType; } }));
@@ -28218,6 +28319,7 @@ Object.defineProperty(exports, "createMessageConnection", ({ enumerable: true, g
 Object.defineProperty(exports, "ProgressToken", ({ enumerable: true, get: function () { return connection_1.ProgressToken; } }));
 Object.defineProperty(exports, "ProgressType", ({ enumerable: true, get: function () { return connection_1.ProgressType; } }));
 Object.defineProperty(exports, "Trace", ({ enumerable: true, get: function () { return connection_1.Trace; } }));
+Object.defineProperty(exports, "TraceValues", ({ enumerable: true, get: function () { return connection_1.TraceValues; } }));
 Object.defineProperty(exports, "TraceFormat", ({ enumerable: true, get: function () { return connection_1.TraceFormat; } }));
 Object.defineProperty(exports, "SetTraceNotification", ({ enumerable: true, get: function () { return connection_1.SetTraceNotification; } }));
 Object.defineProperty(exports, "LogTraceNotification", ({ enumerable: true, get: function () { return connection_1.LogTraceNotification; } }));
@@ -28346,7 +28448,7 @@ exports.CancellationTokenSource = CancellationTokenSource;
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.createMessageConnection = exports.ConnectionOptions = exports.CancellationStrategy = exports.CancellationSenderStrategy = exports.CancellationReceiverStrategy = exports.ConnectionStrategy = exports.ConnectionError = exports.ConnectionErrors = exports.LogTraceNotification = exports.SetTraceNotification = exports.TraceFormat = exports.Trace = exports.NullLogger = exports.ProgressType = exports.ProgressToken = void 0;
+exports.createMessageConnection = exports.ConnectionOptions = exports.CancellationStrategy = exports.CancellationSenderStrategy = exports.CancellationReceiverStrategy = exports.ConnectionStrategy = exports.ConnectionError = exports.ConnectionErrors = exports.LogTraceNotification = exports.SetTraceNotification = exports.TraceFormat = exports.TraceValues = exports.Trace = exports.NullLogger = exports.ProgressType = exports.ProgressToken = void 0;
 const ral_1 = __webpack_require__(147);
 const Is = __webpack_require__(7574);
 const messages_1 = __webpack_require__(839);
@@ -28393,6 +28495,25 @@ var Trace;
     Trace[Trace["Compact"] = 2] = "Compact";
     Trace[Trace["Verbose"] = 3] = "Verbose";
 })(Trace = exports.Trace || (exports.Trace = {}));
+var TraceValues;
+(function (TraceValues) {
+    /**
+     * Turn tracing off.
+     */
+    TraceValues.Off = 'off';
+    /**
+     * Trace messages only.
+     */
+    TraceValues.Messages = 'messages';
+    /**
+     * Compact message tracing.
+     */
+    TraceValues.Compact = 'compact';
+    /**
+     * Verbose message tracing.
+     */
+    TraceValues.Verbose = 'verbose';
+})(TraceValues = exports.TraceValues || (exports.TraceValues = {}));
 (function (Trace) {
     function fromString(value) {
         if (!Is.string(value)) {
@@ -29447,7 +29568,7 @@ function createMessageConnection(messageReader, messageWriter, _logger, options)
             }
             state = ConnectionState.Disposed;
             disposeEmitter.fire(undefined);
-            const error = new Error('Connection got disposed.');
+            const error = new messages_1.ResponseError(messages_1.ErrorCodes.PendingResponseRejected, 'Pending response rejected since connection got disposed');
             for (const promise of responsePromises.values()) {
                 promise.reject(error);
             }
@@ -30623,8 +30744,23 @@ var ErrorCodes;
     ErrorCodes.jsonrpcReservedErrorRangeStart = -32099;
     /** @deprecated use  jsonrpcReservedErrorRangeStart */
     ErrorCodes.serverErrorStart = -32099;
+    /**
+     * An error occurred when write a message to the transport layer.
+     */
     ErrorCodes.MessageWriteError = -32099;
+    /**
+     * An error occurred when reading a message from the transport layer.
+     */
     ErrorCodes.MessageReadError = -32098;
+    /**
+     * The connection got disposed or lost and all pending responses got
+     * rejected.
+     */
+    ErrorCodes.PendingResponseRejected = -32097;
+    /**
+     * The connection is inactive and a use of it failed.
+     */
+    ErrorCodes.ConnectionInactive = -32096;
     /**
      * Error code indicating that a server received a notification or
      * request before the server has received the `initialize` request.
@@ -31583,7 +31719,6 @@ const documentLink_1 = __webpack_require__(3471);
 const executeCommand_1 = __webpack_require__(4849);
 const fileSystemWatcher_1 = __webpack_require__(5338);
 const colorProvider_1 = __webpack_require__(3069);
-const configuration_2 = __webpack_require__(6495);
 const implementation_1 = __webpack_require__(9889);
 const typeDefinition_1 = __webpack_require__(328);
 const workspaceFolder_1 = __webpack_require__(5941);
@@ -31756,6 +31891,8 @@ class BaseLanguageClient {
         };
         this._clientOptions.synchronize = this._clientOptions.synchronize || {};
         this._state = ClientState.Initial;
+        this._ignoredRegistrations = new Set();
+        this._listeners = [];
         this._notificationHandlers = new Map();
         this._pendingNotificationHandlers = new Map();
         this._notificationDisposables = new Map();
@@ -31863,10 +32000,13 @@ class BaseLanguageClient {
         return this._initializeResult;
     }
     async sendRequest(type, ...params) {
+        if (this.$state === ClientState.StartFailed || this.$state === ClientState.Stopping || this.$state === ClientState.Stopped) {
+            return Promise.reject(new vscode_languageserver_protocol_1.ResponseError(vscode_languageserver_protocol_1.ErrorCodes.ConnectionInactive, `Client is not running`));
+        }
         try {
             // Ensure we have a connection before we force the document sync.
             const connection = await this.$start();
-            this.forceDocumentSync();
+            await this.forceDocumentSync();
             return connection.sendRequest(type, ...params);
         }
         catch (error) {
@@ -31912,10 +32052,13 @@ class BaseLanguageClient {
         };
     }
     async sendNotification(type, params) {
+        if (this.$state === ClientState.StartFailed || this.$state === ClientState.Stopping || this.$state === ClientState.Stopped) {
+            return Promise.reject(new vscode_languageserver_protocol_1.ResponseError(vscode_languageserver_protocol_1.ErrorCodes.ConnectionInactive, `Client is not running`));
+        }
         try {
             // Ensure we have a connection before we force the document sync.
             const connection = await this.$start();
-            this.forceDocumentSync();
+            await this.forceDocumentSync();
             return connection.sendNotification(type, params);
         }
         catch (error) {
@@ -31961,6 +32104,9 @@ class BaseLanguageClient {
         };
     }
     async sendProgress(type, token, value) {
+        if (this.$state === ClientState.StartFailed || this.$state === ClientState.Stopping || this.$state === ClientState.Stopped) {
+            return Promise.reject(new vscode_languageserver_protocol_1.ResponseError(vscode_languageserver_protocol_1.ErrorCodes.ConnectionInactive, `Client is not running`));
+        }
         try {
             // Ensure we have a connection before we force the document sync.
             const connection = await this.$start();
@@ -32115,12 +32261,16 @@ class BaseLanguageClient {
         return this.$state === ClientState.Running;
     }
     async start() {
+        if (this._disposed === 'disposing' || this._disposed === 'disposed') {
+            throw new Error(`Client got disposed and can't be restarted.`);
+        }
+        if (this.$state === ClientState.Stopping) {
+            throw new Error(`Client is currently stopping. Can only restart a full stopped client`);
+        }
+        // We are already running or are in the process of getting up
+        // to speed.
         if (this._onStart !== undefined) {
             return this._onStart;
-        }
-        if (this._onStop !== undefined) {
-            await this._onStop;
-            this._onStop = undefined;
         }
         const [promise, resolve, reject] = this.createOnStartPromise();
         this._onStart = promise;
@@ -32225,7 +32375,7 @@ class BaseLanguageClient {
                         }
                     }
                     catch (error) {
-                        return { success: true };
+                        return { success: false };
                     }
                 };
                 const middleware = this._clientOptions.middleware.window?.showDocument;
@@ -32398,26 +32548,39 @@ class BaseLanguageClient {
         }
         return undefined;
     }
-    async stop(timeout = 2000) {
+    stop(timeout = 2000) {
         // Wait 2 seconds on stop
         return this.shutdown('stop', timeout);
     }
-    async suspend() {
-        // Wait 5 seconds on suspend.
-        return this.shutdown('suspend', 5000);
+    dispose(timeout = 2000) {
+        try {
+            this._disposed = 'disposing';
+            return this.stop(timeout);
+        }
+        finally {
+            this._disposed = 'disposed';
+        }
     }
     async shutdown(mode, timeout) {
-        // If the client is in stopped state simple return.
-        // It could also be that the client failed to stop
-        // which puts it into the stopped state as well.
+        // If the client is stopped or in its initial state return.
         if (this.$state === ClientState.Stopped || this.$state === ClientState.Initial) {
             return;
         }
-        if (this.$state === ClientState.Stopping && this._onStop) {
-            return this._onStop;
+        // If we are stopping the client and have a stop promise return it.
+        if (this.$state === ClientState.Stopping) {
+            if (this._onStop !== undefined) {
+                return this._onStop;
+            }
+            else {
+                throw new Error(`Client is stopping but no stop promise available.`);
+            }
         }
-        // To ensure proper shutdown we need a proper created connection.
-        const connection = await this.$start();
+        const connection = this.activeConnection();
+        // We can't stop a client that is not running (e.g. has no connection). Especially not
+        // on that us starting since it can't be correctly synchronized.
+        if (connection === undefined || this.$state !== ClientState.Running) {
+            throw new Error(`Client is not running and can't be stopped. It's current state is: ${this.$state}`);
+        }
         this._initializeResult = undefined;
         this.$state = ClientState.Stopping;
         this.cleanUp(mode);
@@ -32446,12 +32609,17 @@ class BaseLanguageClient {
             this._onStart = undefined;
             this._onStop = undefined;
             this._connection = undefined;
+            this._ignoredRegistrations.clear();
         });
     }
     cleanUp(mode) {
         // purge outstanding file events.
         this._fileEvents = [];
         this._fileEventDelayer.cancel();
+        const disposables = this._listeners.splice(0, this._listeners.length);
+        for (const disposable of disposables) {
+            disposable.dispose();
+        }
         if (this._syncedDocuments) {
             this._syncedDocuments.clear();
         }
@@ -32481,7 +32649,7 @@ class BaseLanguageClient {
             client._fileEvents.push(event);
             return client._fileEventDelayer.trigger(async () => {
                 const connection = await client.$start();
-                client.forceDocumentSync();
+                await client.forceDocumentSync();
                 const result = connection.sendNotification(vscode_languageserver_protocol_1.DidChangeWatchedFilesNotification.type, { changes: client._fileEvents });
                 client._fileEvents = [];
                 return result;
@@ -32492,11 +32660,11 @@ class BaseLanguageClient {
             client.error(`Notify file events failed.`, error);
         });
     }
-    forceDocumentSync() {
+    async forceDocumentSync() {
         if (this._didChangeTextDocumentFeature === undefined) {
             this._didChangeTextDocumentFeature = this._dynamicFeatures.get(vscode_languageserver_protocol_1.DidChangeTextDocumentNotification.type.method);
         }
-        this._didChangeTextDocumentFeature.forceDelivery();
+        return this._didChangeTextDocumentFeature.forceDelivery();
     }
     handleDiagnostics(params) {
         if (!this._diagnostics) {
@@ -32624,9 +32792,9 @@ class BaseLanguageClient {
         }
     }
     hookConfigurationChanged(connection) {
-        vscode_1.workspace.onDidChangeConfiguration(() => {
+        this._listeners.push(vscode_1.workspace.onDidChangeConfiguration(() => {
             this.refreshTrace(connection, true);
-        });
+        }));
     }
     refreshTrace(connection, sendNotification = false) {
         const config = vscode_1.workspace.getConfiguration(this._id);
@@ -32714,7 +32882,6 @@ class BaseLanguageClient {
         this.registerFeature(new documentLink_1.DocumentLinkFeature(this));
         this.registerFeature(new executeCommand_1.ExecuteCommandFeature(this));
         this.registerFeature(new configuration_1.SyncConfigurationFeature(this));
-        this.registerFeature(new configuration_2.ConfigurationFeature(this));
         this.registerFeature(new typeDefinition_1.TypeDefinitionFeature(this));
         this.registerFeature(new implementation_1.ImplementationFeature(this));
         this.registerFeature(new colorProvider_1.ColorProviderFeature(this));
@@ -32805,6 +32972,15 @@ class BaseLanguageClient {
         }
     }
     async handleRegistrationRequest(params) {
+        // We will not receive a registration call before a client is running
+        // from a server. However if we stop or shutdown we might which might
+        // try to restart the server. So ignore registrations if we are not running
+        if (!this.isRunning()) {
+            for (const registration of params.registrations) {
+                this._ignoredRegistrations.add(registration.id);
+            }
+            return;
+        }
         for (const registration of params.registrations) {
             const feature = this._dynamicFeatures.get(registration.method);
             if (feature === undefined) {
@@ -32826,6 +33002,9 @@ class BaseLanguageClient {
     }
     async handleUnregistrationRequest(params) {
         for (let unregistration of params.unregisterations) {
+            if (this._ignoredRegistrations.has(unregistration.id)) {
+                continue;
+            }
             const feature = this._dynamicFeatures.get(unregistration.method);
             if (!feature) {
                 return Promise.reject(new Error(`No feature implementation for ${unregistration.method} found. Unregistration failed.`));
@@ -32865,6 +33044,11 @@ class BaseLanguageClient {
     handleFailedRequest(type, token, error, defaultValue, showNotification = true) {
         // If we get a request cancel or a content modified don't log anything.
         if (error instanceof vscode_languageserver_protocol_1.ResponseError) {
+            // The connection got disposed while we were waiting for a response.
+            // Simply return the default value. Is the best we can do.
+            if (error.code === vscode_languageserver_protocol_1.ErrorCodes.PendingResponseRejected || error.code === vscode_languageserver_protocol_1.ErrorCodes.ConnectionInactive) {
+                return defaultValue;
+            }
             if (error.code === vscode_languageserver_protocol_1.LSPErrorCodes.RequestCancelled || error.code === vscode_languageserver_protocol_1.LSPErrorCodes.ServerCancelled) {
                 if (token !== undefined && token.isCancellationRequested) {
                     return defaultValue;
@@ -33700,7 +33884,7 @@ function createConverter(uriConverter) {
         if (context === undefined || context === null) {
             return context;
         }
-        return proto.InlineValueContext.create(context.frameId, context.stoppedLocation);
+        return proto.InlineValueContext.create(context.frameId, asRange(context.stoppedLocation));
     }
     function asCommand(item) {
         let result = proto.Command.create(item.title, item.command);
@@ -34235,7 +34419,7 @@ const Is = __webpack_require__(9763);
 const UUID = __webpack_require__(1980);
 const features_1 = __webpack_require__(8909);
 /**
- * Configuration pull model. Form server to client.
+ * Configuration pull model. From server to client.
  */
 class ConfigurationFeature {
     constructor(client) {
@@ -34595,30 +34779,62 @@ var RequestStateKind;
     RequestStateKind["reschedule"] = "reschedule";
     RequestStateKind["outDated"] = "drop";
 })(RequestStateKind || (RequestStateKind = {}));
+/**
+ * Manages the open tabs. We don't directly use the tab API since for
+ * diagnostics we need to de-dupe tabs that show the same resources since
+ * we pull on the model not the UI.
+ */
 class Tabs {
     constructor() {
         this.open = new Set();
-        const openTabsHandler = () => {
-            this.open.clear();
-            for (const group of vscode_1.window.tabGroups.all) {
-                for (const tab of group.tabs) {
-                    const input = tab.input;
-                    if (input instanceof vscode_1.TabInputText) {
-                        this.open.add(input.uri.toString());
-                    }
-                    else if (input instanceof vscode_1.TabInputTextDiff) {
-                        this.open.add(input.modified.toString());
-                    }
+        this._onOpen = new vscode_1.EventEmitter();
+        this._onClose = new vscode_1.EventEmitter();
+        Tabs.fillTabResources(this.open);
+        const openTabsHandler = (event) => {
+            if (event.closed.length === 0 && event.opened.length === 0) {
+                return;
+            }
+            const oldTabs = this.open;
+            const currentTabs = new Set();
+            Tabs.fillTabResources(currentTabs);
+            const closed = new Set();
+            const opened = new Set(currentTabs);
+            for (const tab of oldTabs.values()) {
+                if (currentTabs.has(tab)) {
+                    opened.delete(tab);
+                }
+                else {
+                    closed.add(tab);
                 }
             }
+            this.open = currentTabs;
+            if (closed.size > 0) {
+                const toFire = new Set();
+                for (const item of closed) {
+                    toFire.add(vscode_1.Uri.parse(item));
+                }
+                this._onClose.fire(toFire);
+            }
+            if (opened.size > 0) {
+                const toFire = new Set();
+                for (const item of opened) {
+                    toFire.add(vscode_1.Uri.parse(item));
+                }
+                this._onOpen.fire(toFire);
+            }
         };
-        openTabsHandler();
-        if (vscode_1.window.tabGroups.onDidChangeTabGroups !== undefined) {
-            this.disposable = vscode_1.window.tabGroups.onDidChangeTabGroups(openTabsHandler);
+        if (vscode_1.window.tabGroups.onDidChangeTabs !== undefined) {
+            this.disposable = vscode_1.window.tabGroups.onDidChangeTabs(openTabsHandler);
         }
         else {
             this.disposable = { dispose: () => { } };
         }
+    }
+    get onClose() {
+        return this._onClose.event;
+    }
+    get onOpen() {
+        return this._onOpen.event;
     }
     dispose() {
         this.disposable.dispose();
@@ -34633,19 +34849,28 @@ class Tabs {
         return this.open.has(uri.toString());
     }
     getTabResources() {
-        const result = [];
+        const result = new Set();
+        Tabs.fillTabResources(new Set(), result);
+        return result;
+    }
+    static fillTabResources(strings, uris) {
+        const seen = strings ?? new Set();
         for (const group of vscode_1.window.tabGroups.all) {
             for (const tab of group.tabs) {
                 const input = tab.input;
+                let uri;
                 if (input instanceof vscode_1.TabInputText) {
-                    result.push(input.uri);
+                    uri = input.uri;
                 }
                 else if (input instanceof vscode_1.TabInputTextDiff) {
-                    result.push(input.modified);
+                    uri = input.modified;
+                }
+                if (uri !== undefined && !seen.has(uri.toString())) {
+                    seen.add(uri.toString());
+                    uris !== undefined && uris.add(uri);
                 }
             }
         }
-        return result;
     }
 }
 var PullState;
@@ -34726,10 +34951,16 @@ class DiagnosticRequestor {
         this.documentStates = new DocumentPullStateTracker();
         this.workspaceErrorCounter = 0;
     }
-    knows(kind, textDocument) {
-        return this.documentStates.tracks(kind, textDocument);
+    knows(kind, document) {
+        return this.documentStates.tracks(kind, document);
+    }
+    forget(kind, document) {
+        this.documentStates.unTrack(kind, document);
     }
     pull(document, cb) {
+        if (this.isDisposed) {
+            return;
+        }
         const uri = document instanceof vscode_1.Uri ? document : document.uri;
         this.pullAsync(document).then(() => {
             if (cb) {
@@ -34740,6 +34971,9 @@ class DiagnosticRequestor {
         });
     }
     async pullAsync(document, version) {
+        if (this.isDisposed) {
+            return;
+        }
         const isUri = document instanceof vscode_1.Uri;
         const uri = isUri ? document : document.uri;
         const key = uri.toString();
@@ -34805,19 +35039,26 @@ class DiagnosticRequestor {
             }
         }
     }
-    cleanupPull(document) {
+    forgetDocument(document) {
         const uri = document instanceof vscode_1.Uri ? document : document.uri;
         const key = uri.toString();
         const request = this.openRequests.get(key);
-        if (this.options.workspaceDiagnostics || this.options.interFileDependencies) {
+        if (this.options.workspaceDiagnostics) {
+            // If we run workspace diagnostic pull a last time for the diagnostics
+            // and the rely on getting them from the workspace result.
             if (request !== undefined) {
                 this.openRequests.set(key, { state: RequestStateKind.reschedule, document: document });
             }
             else {
-                this.pull(document);
+                this.pull(document, () => {
+                    this.forget(PullState.document, document);
+                });
             }
         }
         else {
+            // We have normal pull or inter file dependencies. In this case we
+            // clear the diagnostics (to have the same start as after startup).
+            // We also cancel outstanding requests.
             if (request !== undefined) {
                 if (request.state === RequestStateKind.active) {
                     request.tokenSource.cancel();
@@ -34825,9 +35066,13 @@ class DiagnosticRequestor {
                 this.openRequests.set(key, { state: RequestStateKind.outDated, document: document });
             }
             this.diagnostics.delete(uri);
+            this.forget(PullState.document, document);
         }
     }
     pullWorkspace() {
+        if (this.isDisposed) {
+            return;
+        }
         this.pullWorkspaceAsync().then(() => {
             this.workspaceTimeout = (0, vscode_languageserver_protocol_1.RAL)().timer.setTimeout(() => {
                 this.pullWorkspace();
@@ -34845,7 +35090,7 @@ class DiagnosticRequestor {
         });
     }
     async pullWorkspaceAsync() {
-        if (!this.provider.provideWorkspaceDiagnostics) {
+        if (!this.provider.provideWorkspaceDiagnostics || this.isDisposed) {
             return;
         }
         if (this.workspaceCancellation !== undefined) {
@@ -34885,6 +35130,9 @@ class DiagnosticRequestor {
                         textDocument: { uri: this.client.code2ProtocolConverter.asUri(document instanceof vscode_1.Uri ? document : document.uri) },
                         previousResultId: previousResultId
                     };
+                    if (this.isDisposed === true || !this.client.isRunning()) {
+                        return { kind: vsdiag.DocumentDiagnosticReportKind.full, items: [] };
+                    }
                     return this.client.sendRequest(vscode_languageserver_protocol_1.DocumentDiagnosticRequest.type, params, token).then(async (result) => {
                         if (result === undefined || result === null || this.isDisposed || token.isCancellationRequested) {
                             return { kind: vsdiag.DocumentDiagnosticReportKind.full, items: [] };
@@ -34958,6 +35206,9 @@ class DiagnosticRequestor {
                         previousResultIds: convertPreviousResultIds(resultIds),
                         partialResultToken: partialResultToken
                     };
+                    if (this.isDisposed === true || !this.client.isRunning()) {
+                        return { items: [] };
+                    }
                     return this.client.sendRequest(vscode_languageserver_protocol_1.WorkspaceDiagnosticRequest.type, params, token).then(async (result) => {
                         if (token.isCancellationRequested) {
                             return { items: [] };
@@ -34996,14 +35247,20 @@ class DiagnosticRequestor {
             }
             this.openRequests.set(key, { state: RequestStateKind.outDated, document: request.document });
         }
+        // cleanup old diagnostics
+        this.diagnostics.dispose();
     }
 }
 class BackgroundScheduler {
     constructor(diagnosticRequestor) {
         this.diagnosticRequestor = diagnosticRequestor;
         this.documents = new vscode_languageserver_protocol_1.LinkedMap();
+        this.isDisposed = false;
     }
     add(document) {
+        if (this.isDisposed === true) {
+            return;
+        }
         const key = document instanceof vscode_1.Uri ? document.toString() : document.uri.toString();
         if (this.documents.has(key)) {
             return;
@@ -35028,6 +35285,9 @@ class BackgroundScheduler {
         }
     }
     trigger() {
+        if (this.isDisposed === true) {
+            return;
+        }
         // We have a round running. So simply make sure we run up to the
         // last document
         if (this.intervalHandle !== undefined) {
@@ -35048,6 +35308,7 @@ class BackgroundScheduler {
         }, 200);
     }
     dispose() {
+        this.isDisposed = true;
         this.stop();
         this.documents.clear();
     }
@@ -35123,6 +35384,12 @@ class DiagnosticFeatureProviderImpl {
                 this.backgroundScheduler.remove(this.activeTextDocument);
             }
         });
+        // For pull model diagnostics we pull for documents visible in the UI.
+        // From an eventing point of view we still rely on open document events
+        // and filter the documents that are not visible in the UI instead of
+        // listening to Tab events. Major reason is event timing since we need
+        // to ensure that the pull is send after the document open has reached
+        // the server.
         // We always pull on open.
         const openFeature = client.getFeature(vscode_languageserver_protocol_1.DidOpenTextDocumentNotification.method);
         disposables.push(openFeature.onNotificationSent((event) => {
@@ -35132,21 +35399,28 @@ class DiagnosticFeatureProviderImpl {
             }
         }));
         // Pull all diagnostics for documents that are already open
-        const pullTextDocuments = new Set();
+        const pulledTextDocuments = new Set();
         for (const textDocument of vscode_1.workspace.textDocuments) {
             if (matches(textDocument)) {
                 this.diagnosticRequestor.pull(textDocument, () => { addToBackgroundIfNeeded(textDocument); });
-                pullTextDocuments.add(textDocument.uri.toString());
+                pulledTextDocuments.add(textDocument.uri.toString());
             }
         }
-        // Pull all tabs if not already pull as text document
+        // Pull all tabs if not already pulled as text document
         if (diagnosticPullOptions.onTabs === true) {
             for (const resource of tabs.getTabResources()) {
-                if (!pullTextDocuments.has(resource.toString()) && matches(resource)) {
+                if (!pulledTextDocuments.has(resource.toString()) && matches(resource)) {
                     this.diagnosticRequestor.pull(resource, () => { addToBackgroundIfNeeded(resource); });
                 }
             }
         }
+        tabs.onOpen((opened) => {
+            for (const document of opened) {
+                if (matches(document) && !this.diagnosticRequestor.knows(PullState.document, document)) {
+                    this.diagnosticRequestor.pull(document, () => { addToBackgroundIfNeeded(document); });
+                }
+            }
+        });
         if (diagnosticPullOptions.onChange === true) {
             const changeFeature = client.getFeature(vscode_languageserver_protocol_1.DidChangeTextDocumentNotification.method);
             disposables.push(changeFeature.onNotificationSent(async (event) => {
@@ -35168,10 +35442,14 @@ class DiagnosticFeatureProviderImpl {
         // When the document closes clear things up
         const closeFeature = client.getFeature(vscode_languageserver_protocol_1.DidCloseTextDocumentNotification.method);
         disposables.push(closeFeature.onNotificationSent((event) => {
-            const textDocument = event.original;
-            this.diagnosticRequestor.cleanupPull(textDocument);
-            this.backgroundScheduler.remove(textDocument);
+            this.cleanUpDocument(event.original);
         }));
+        // Same when a tabs closes.
+        tabs.onClose((closed) => {
+            for (const document of closed) {
+                this.cleanUpDocument(document);
+            }
+        });
         // We received a did change from the server.
         this.diagnosticRequestor.onDidChangeDiagnosticsEmitter.event(() => {
             for (const textDocument of vscode_1.workspace.textDocuments) {
@@ -35192,11 +35470,16 @@ class DiagnosticFeatureProviderImpl {
     get diagnostics() {
         return this.diagnosticRequestor.provider;
     }
+    cleanUpDocument(document) {
+        if (this.diagnosticRequestor.knows(PullState.document, document)) {
+            this.diagnosticRequestor.forgetDocument(document);
+            this.backgroundScheduler.remove(document);
+        }
+    }
 }
 class DiagnosticFeature extends features_1.TextDocumentLanguageFeature {
     constructor(client) {
         super(client, vscode_languageserver_protocol_1.DocumentDiagnosticRequest.type);
-        this.tabs = new Tabs();
     }
     fillClientCapabilities(capabilities) {
         let capability = ensure(ensure(capabilities, 'textDocument'), 'diagnostic');
@@ -35221,10 +35504,16 @@ class DiagnosticFeature extends features_1.TextDocumentLanguageFeature {
         this.register({ id: id, registerOptions: options });
     }
     dispose() {
-        this.tabs.dispose();
+        if (this.tabs !== undefined) {
+            this.tabs.dispose();
+            this.tabs = undefined;
+        }
         super.dispose();
     }
     registerLanguageProvider(options) {
+        if (this.tabs === undefined) {
+            this.tabs = new Tabs();
+        }
         const provider = new DiagnosticFeatureProviderImpl(this._client, this.tabs, options);
         return [provider.disposable, provider];
     }
@@ -37589,15 +37878,9 @@ class NotebookDocumentSyncFeatureProvider {
             return undefined;
         }
         for (const item of this.options.notebookSelector) {
-            if (item.notebook === undefined) {
-                if (item.cells === undefined) {
-                    return undefined;
-                }
+            if (item.notebook === undefined || $NotebookDocumentFilter.matchNotebook(item.notebook, notebookDocument)) {
                 const filtered = this.filterCells(notebookDocument, cells, item.cells);
                 return filtered.length === 0 ? undefined : filtered;
-            }
-            else if ($NotebookDocumentFilter.matchNotebook(item.notebook, notebookDocument)) {
-                return item.cells === undefined ? cells : this.filterCells(notebookDocument, cells, item.cells);
             }
         }
         return undefined;
@@ -37607,13 +37890,13 @@ class NotebookDocumentSyncFeatureProvider {
         return cells !== undefined && cells[0] === cell;
     }
     filterCells(notebookDocument, cells, cellSelector) {
-        const result = cells.filter((cell) => {
+        const filtered = cellSelector !== undefined ? cells.filter((cell) => {
             const cellLanguage = cell.document.languageId;
             return cellSelector.some((filter => (filter.language === '*' || cellLanguage === filter.language)));
-        });
+        }) : cells;
         return typeof this.client.clientOptions.notebookDocumentOptions?.filterCells === 'function'
-            ? this.client.clientOptions.notebookDocumentOptions.filterCells(notebookDocument, cells)
-            : result;
+            ? this.client.clientOptions.notebookDocumentOptions.filterCells(notebookDocument, filtered)
+            : filtered;
     }
 }
 class NotebookDocumentSyncFeature {
@@ -39926,9 +40209,16 @@ class DidChangeTextDocumentFeature extends features_1.DynamicDocumentFeature {
                         if (this._changeDelayer) {
                             if (this._changeDelayer.uri !== event.document.uri.toString()) {
                                 // Use this force delivery to track boolean state. Otherwise we might call two times.
-                                this.forceDelivery();
+                                await this.forceDelivery();
                                 this._changeDelayer.uri = event.document.uri.toString();
                             }
+                            // Usually we return the promise that signals that the data has been
+                            // handed of to the network. With delayed change notification we can't
+                            // do that since it would make the sendNotification call wait until the
+                            // change delayer resolves and would therefore defeat the purpose. We
+                            // instead return the change delayer and ensure via forceDocumentSync
+                            // that before sending other notification / request the document sync
+                            // has actually happened.
                             return this._changeDelayer.delayer.trigger(() => doSend(event));
                         }
                         else {
@@ -39936,6 +40226,7 @@ class DidChangeTextDocumentFeature extends features_1.DynamicDocumentFeature {
                                 uri: event.document.uri.toString(),
                                 delayer: new async_1.Delayer(200)
                             };
+                            // See comment above.
                             return this._changeDelayer.delayer.trigger(() => doSend(event), -1);
                         }
                     };
@@ -39973,13 +40264,13 @@ class DidChangeTextDocumentFeature extends features_1.DynamicDocumentFeature {
             this._listener = undefined;
         }
     }
-    forceDelivery() {
+    async forceDelivery() {
         if (this._forcingDelivery || !this._changeDelayer) {
             return;
         }
         try {
             this._forcingDelivery = true;
-            this._changeDelayer.delayer.forceDelivery();
+            return this._changeDelayer.delayer.forceDelivery();
         }
         finally {
             this._forcingDelivery = false;
@@ -40294,7 +40585,7 @@ exports.TypeHierarchyFeature = TypeHierarchyFeature;
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.forEach = exports.mapAsync = exports.map = exports.Semaphore = exports.Delayer = void 0;
+exports.forEach = exports.mapAsync = exports.map = exports.clearTestMode = exports.setTestMode = exports.Semaphore = exports.Delayer = void 0;
 const vscode_languageserver_protocol_1 = __webpack_require__(273);
 class Delayer {
     constructor(defaultDelay) {
@@ -40414,10 +40705,19 @@ class Semaphore {
     }
 }
 exports.Semaphore = Semaphore;
+let $test = false;
+function setTestMode() {
+    $test = true;
+}
+exports.setTestMode = setTestMode;
+function clearTestMode() {
+    $test = false;
+}
+exports.clearTestMode = clearTestMode;
 const defaultYieldTimeout = 15 /*ms*/;
 class Timer {
     constructor(yieldAfter = defaultYieldTimeout) {
-        this.yieldAfter = Math.max(yieldAfter, defaultYieldTimeout);
+        this.yieldAfter = $test === true ? Math.max(yieldAfter, 2) : Math.max(yieldAfter, defaultYieldTimeout);
         this.startTime = Date.now();
         this.counter = 0;
         this.total = 0;
@@ -40425,6 +40725,9 @@ class Timer {
         this.counterInterval = 1;
     }
     start() {
+        this.counter = 0;
+        this.total = 0;
+        this.counterInterval = 1;
         this.startTime = Date.now();
     }
     shouldYield() {
@@ -40997,12 +41300,14 @@ exports.SettingMonitor = exports.LanguageClient = exports.TransportKind = void 0
 const cp = __webpack_require__(2081);
 const fs = __webpack_require__(7147);
 const path = __webpack_require__(1017);
-const SemVer = __webpack_require__(1249);
 const vscode_1 = __webpack_require__(9496);
 const Is = __webpack_require__(9763);
 const client_1 = __webpack_require__(4384);
 const processes_1 = __webpack_require__(794);
 const node_1 = __webpack_require__(6560);
+// Import SemVer functions individually to avoid circular dependencies in SemVer
+const semverParse = __webpack_require__(3959);
+const semverSatisfies = __webpack_require__(5712);
 __exportStar(__webpack_require__(6560), exports);
 __exportStar(__webpack_require__(5734), exports);
 const REQUIRED_VSCODE_VERSION = '^1.67.0'; // do not change format, updated by `updateVSCode` script
@@ -41090,7 +41395,7 @@ class LanguageClient extends client_1.BaseLanguageClient {
         }
     }
     checkVersion() {
-        const codeVersion = SemVer.parse(vscode_1.version);
+        const codeVersion = semverParse(vscode_1.version);
         if (!codeVersion) {
             throw new Error(`No valid VS Code version detected. Version string is: ${vscode_1.version}`);
         }
@@ -41098,7 +41403,7 @@ class LanguageClient extends client_1.BaseLanguageClient {
         if (codeVersion.prerelease && codeVersion.prerelease.length > 0) {
             codeVersion.prerelease = [];
         }
-        if (!SemVer.satisfies(codeVersion, REQUIRED_VSCODE_VERSION)) {
+        if (!semverSatisfies(codeVersion, REQUIRED_VSCODE_VERSION)) {
             throw new Error(`The language client requires VS Code version ${REQUIRED_VSCODE_VERSION} but received version ${vscode_1.version}`);
         }
     }
@@ -42899,8 +43204,14 @@ exports.createProtocolConnection = createProtocolConnection;
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.ProtocolNotificationType = exports.ProtocolNotificationType0 = exports.ProtocolRequestType = exports.ProtocolRequestType0 = exports.RegistrationType = void 0;
+exports.ProtocolNotificationType = exports.ProtocolNotificationType0 = exports.ProtocolRequestType = exports.ProtocolRequestType0 = exports.RegistrationType = exports.MessageDirection = void 0;
 const vscode_jsonrpc_1 = __webpack_require__(4389);
+var MessageDirection;
+(function (MessageDirection) {
+    MessageDirection["clientToServer"] = "clientToServer";
+    MessageDirection["serverToClient"] = "serverToClient";
+    MessageDirection["both"] = "both";
+})(MessageDirection = exports.MessageDirection || (exports.MessageDirection = {}));
 class RegistrationType {
     constructor(method) {
         this.method = method;
@@ -42949,13 +43260,14 @@ exports.CallHierarchyOutgoingCallsRequest = exports.CallHierarchyIncomingCallsRe
 const messages_1 = __webpack_require__(6140);
 /**
  * A request to result a `CallHierarchyItem` in a document at a given position.
- * Can be used as an input to a incoming or outgoing call hierarchy.
+ * Can be used as an input to an incoming or outgoing call hierarchy.
  *
  * @since 3.16.0
  */
 var CallHierarchyPrepareRequest;
 (function (CallHierarchyPrepareRequest) {
     CallHierarchyPrepareRequest.method = 'textDocument/prepareCallHierarchy';
+    CallHierarchyPrepareRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     CallHierarchyPrepareRequest.type = new messages_1.ProtocolRequestType(CallHierarchyPrepareRequest.method);
 })(CallHierarchyPrepareRequest = exports.CallHierarchyPrepareRequest || (exports.CallHierarchyPrepareRequest = {}));
 /**
@@ -42966,6 +43278,7 @@ var CallHierarchyPrepareRequest;
 var CallHierarchyIncomingCallsRequest;
 (function (CallHierarchyIncomingCallsRequest) {
     CallHierarchyIncomingCallsRequest.method = 'callHierarchy/incomingCalls';
+    CallHierarchyIncomingCallsRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     CallHierarchyIncomingCallsRequest.type = new messages_1.ProtocolRequestType(CallHierarchyIncomingCallsRequest.method);
 })(CallHierarchyIncomingCallsRequest = exports.CallHierarchyIncomingCallsRequest || (exports.CallHierarchyIncomingCallsRequest = {}));
 /**
@@ -42976,6 +43289,7 @@ var CallHierarchyIncomingCallsRequest;
 var CallHierarchyOutgoingCallsRequest;
 (function (CallHierarchyOutgoingCallsRequest) {
     CallHierarchyOutgoingCallsRequest.method = 'callHierarchy/outgoingCalls';
+    CallHierarchyOutgoingCallsRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     CallHierarchyOutgoingCallsRequest.type = new messages_1.ProtocolRequestType(CallHierarchyOutgoingCallsRequest.method);
 })(CallHierarchyOutgoingCallsRequest = exports.CallHierarchyOutgoingCallsRequest || (exports.CallHierarchyOutgoingCallsRequest = {}));
 //# sourceMappingURL=protocol.callHierarchy.js.map
@@ -43003,6 +43317,7 @@ const messages_1 = __webpack_require__(6140);
 var DocumentColorRequest;
 (function (DocumentColorRequest) {
     DocumentColorRequest.method = 'textDocument/documentColor';
+    DocumentColorRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     DocumentColorRequest.type = new messages_1.ProtocolRequestType(DocumentColorRequest.method);
 })(DocumentColorRequest = exports.DocumentColorRequest || (exports.DocumentColorRequest = {}));
 /**
@@ -43013,7 +43328,9 @@ var DocumentColorRequest;
  */
 var ColorPresentationRequest;
 (function (ColorPresentationRequest) {
-    ColorPresentationRequest.type = new messages_1.ProtocolRequestType('textDocument/colorPresentation');
+    ColorPresentationRequest.method = 'textDocument/colorPresentation';
+    ColorPresentationRequest.messageDirection = messages_1.MessageDirection.clientToServer;
+    ColorPresentationRequest.type = new messages_1.ProtocolRequestType(ColorPresentationRequest.method);
 })(ColorPresentationRequest = exports.ColorPresentationRequest || (exports.ColorPresentationRequest = {}));
 //# sourceMappingURL=protocol.colorProvider.js.map
 
@@ -43043,7 +43360,9 @@ const messages_1 = __webpack_require__(6140);
  */
 var ConfigurationRequest;
 (function (ConfigurationRequest) {
-    ConfigurationRequest.type = new messages_1.ProtocolRequestType('workspace/configuration');
+    ConfigurationRequest.method = 'workspace/configuration';
+    ConfigurationRequest.messageDirection = messages_1.MessageDirection.serverToClient;
+    ConfigurationRequest.type = new messages_1.ProtocolRequestType(ConfigurationRequest.method);
 })(ConfigurationRequest = exports.ConfigurationRequest || (exports.ConfigurationRequest = {}));
 //# sourceMappingURL=protocol.configuration.js.map
 
@@ -43073,6 +43392,7 @@ let __noDynamicImport;
 var DeclarationRequest;
 (function (DeclarationRequest) {
     DeclarationRequest.method = 'textDocument/declaration';
+    DeclarationRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     DeclarationRequest.type = new messages_1.ProtocolRequestType(DeclarationRequest.method);
 })(DeclarationRequest = exports.DeclarationRequest || (exports.DeclarationRequest = {}));
 //# sourceMappingURL=protocol.declaration.js.map
@@ -43130,6 +43450,7 @@ var DocumentDiagnosticReportKind;
 var DocumentDiagnosticRequest;
 (function (DocumentDiagnosticRequest) {
     DocumentDiagnosticRequest.method = 'textDocument/diagnostic';
+    DocumentDiagnosticRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     DocumentDiagnosticRequest.type = new messages_1.ProtocolRequestType(DocumentDiagnosticRequest.method);
     DocumentDiagnosticRequest.partialResult = new vscode_jsonrpc_1.ProgressType();
 })(DocumentDiagnosticRequest = exports.DocumentDiagnosticRequest || (exports.DocumentDiagnosticRequest = {}));
@@ -43141,6 +43462,7 @@ var DocumentDiagnosticRequest;
 var WorkspaceDiagnosticRequest;
 (function (WorkspaceDiagnosticRequest) {
     WorkspaceDiagnosticRequest.method = 'workspace/diagnostic';
+    WorkspaceDiagnosticRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     WorkspaceDiagnosticRequest.type = new messages_1.ProtocolRequestType(WorkspaceDiagnosticRequest.method);
     WorkspaceDiagnosticRequest.partialResult = new vscode_jsonrpc_1.ProgressType();
 })(WorkspaceDiagnosticRequest = exports.WorkspaceDiagnosticRequest || (exports.WorkspaceDiagnosticRequest = {}));
@@ -43152,6 +43474,7 @@ var WorkspaceDiagnosticRequest;
 var DiagnosticRefreshRequest;
 (function (DiagnosticRefreshRequest) {
     DiagnosticRefreshRequest.method = `workspace/diagnostic/refresh`;
+    DiagnosticRefreshRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     DiagnosticRefreshRequest.type = new messages_1.ProtocolRequestType0(DiagnosticRefreshRequest.method);
 })(DiagnosticRefreshRequest = exports.DiagnosticRefreshRequest || (exports.DiagnosticRefreshRequest = {}));
 //# sourceMappingURL=protocol.diagnostic.js.map
@@ -43196,6 +43519,7 @@ var FileOperationPatternKind;
 var WillCreateFilesRequest;
 (function (WillCreateFilesRequest) {
     WillCreateFilesRequest.method = 'workspace/willCreateFiles';
+    WillCreateFilesRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     WillCreateFilesRequest.type = new messages_1.ProtocolRequestType(WillCreateFilesRequest.method);
 })(WillCreateFilesRequest = exports.WillCreateFilesRequest || (exports.WillCreateFilesRequest = {}));
 /**
@@ -43207,6 +43531,7 @@ var WillCreateFilesRequest;
 var DidCreateFilesNotification;
 (function (DidCreateFilesNotification) {
     DidCreateFilesNotification.method = 'workspace/didCreateFiles';
+    DidCreateFilesNotification.messageDirection = messages_1.MessageDirection.clientToServer;
     DidCreateFilesNotification.type = new messages_1.ProtocolNotificationType(DidCreateFilesNotification.method);
 })(DidCreateFilesNotification = exports.DidCreateFilesNotification || (exports.DidCreateFilesNotification = {}));
 /**
@@ -43218,6 +43543,7 @@ var DidCreateFilesNotification;
 var WillRenameFilesRequest;
 (function (WillRenameFilesRequest) {
     WillRenameFilesRequest.method = 'workspace/willRenameFiles';
+    WillRenameFilesRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     WillRenameFilesRequest.type = new messages_1.ProtocolRequestType(WillRenameFilesRequest.method);
 })(WillRenameFilesRequest = exports.WillRenameFilesRequest || (exports.WillRenameFilesRequest = {}));
 /**
@@ -43229,6 +43555,7 @@ var WillRenameFilesRequest;
 var DidRenameFilesNotification;
 (function (DidRenameFilesNotification) {
     DidRenameFilesNotification.method = 'workspace/didRenameFiles';
+    DidRenameFilesNotification.messageDirection = messages_1.MessageDirection.clientToServer;
     DidRenameFilesNotification.type = new messages_1.ProtocolNotificationType(DidRenameFilesNotification.method);
 })(DidRenameFilesNotification = exports.DidRenameFilesNotification || (exports.DidRenameFilesNotification = {}));
 /**
@@ -43240,6 +43567,7 @@ var DidRenameFilesNotification;
 var DidDeleteFilesNotification;
 (function (DidDeleteFilesNotification) {
     DidDeleteFilesNotification.method = 'workspace/didDeleteFiles';
+    DidDeleteFilesNotification.messageDirection = messages_1.MessageDirection.clientToServer;
     DidDeleteFilesNotification.type = new messages_1.ProtocolNotificationType(DidDeleteFilesNotification.method);
 })(DidDeleteFilesNotification = exports.DidDeleteFilesNotification || (exports.DidDeleteFilesNotification = {}));
 /**
@@ -43251,6 +43579,7 @@ var DidDeleteFilesNotification;
 var WillDeleteFilesRequest;
 (function (WillDeleteFilesRequest) {
     WillDeleteFilesRequest.method = 'workspace/willDeleteFiles';
+    WillDeleteFilesRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     WillDeleteFilesRequest.type = new messages_1.ProtocolRequestType(WillDeleteFilesRequest.method);
 })(WillDeleteFilesRequest = exports.WillDeleteFilesRequest || (exports.WillDeleteFilesRequest = {}));
 //# sourceMappingURL=protocol.fileOperations.js.map
@@ -43278,6 +43607,7 @@ const messages_1 = __webpack_require__(6140);
 var FoldingRangeRequest;
 (function (FoldingRangeRequest) {
     FoldingRangeRequest.method = 'textDocument/foldingRange';
+    FoldingRangeRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     FoldingRangeRequest.type = new messages_1.ProtocolRequestType(FoldingRangeRequest.method);
 })(FoldingRangeRequest = exports.FoldingRangeRequest || (exports.FoldingRangeRequest = {}));
 //# sourceMappingURL=protocol.foldingRange.js.map
@@ -43307,6 +43637,7 @@ let __noDynamicImport;
 var ImplementationRequest;
 (function (ImplementationRequest) {
     ImplementationRequest.method = 'textDocument/implementation';
+    ImplementationRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     ImplementationRequest.type = new messages_1.ProtocolRequestType(ImplementationRequest.method);
 })(ImplementationRequest = exports.ImplementationRequest || (exports.ImplementationRequest = {}));
 //# sourceMappingURL=protocol.implementation.js.map
@@ -43335,10 +43666,11 @@ const messages_1 = __webpack_require__(6140);
 var InlayHintRequest;
 (function (InlayHintRequest) {
     InlayHintRequest.method = 'textDocument/inlayHint';
+    InlayHintRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     InlayHintRequest.type = new messages_1.ProtocolRequestType(InlayHintRequest.method);
 })(InlayHintRequest = exports.InlayHintRequest || (exports.InlayHintRequest = {}));
 /**
- * A request to resolve additional properties for a inlay hint.
+ * A request to resolve additional properties for an inlay hint.
  * The request's parameter is of type [InlayHint](#InlayHint), the response is
  * of type [InlayHint](#InlayHint) or a Thenable that resolves to such.
  *
@@ -43347,6 +43679,7 @@ var InlayHintRequest;
 var InlayHintResolveRequest;
 (function (InlayHintResolveRequest) {
     InlayHintResolveRequest.method = 'inlayHint/resolve';
+    InlayHintResolveRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     InlayHintResolveRequest.type = new messages_1.ProtocolRequestType(InlayHintResolveRequest.method);
 })(InlayHintResolveRequest = exports.InlayHintResolveRequest || (exports.InlayHintResolveRequest = {}));
 /**
@@ -43355,6 +43688,7 @@ var InlayHintResolveRequest;
 var InlayHintRefreshRequest;
 (function (InlayHintRefreshRequest) {
     InlayHintRefreshRequest.method = `workspace/inlayHint/refresh`;
+    InlayHintRefreshRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     InlayHintRefreshRequest.type = new messages_1.ProtocolRequestType0(InlayHintRefreshRequest.method);
 })(InlayHintRefreshRequest = exports.InlayHintRefreshRequest || (exports.InlayHintRefreshRequest = {}));
 //# sourceMappingURL=protocol.inlayHint.js.map
@@ -43383,6 +43717,7 @@ const messages_1 = __webpack_require__(6140);
 var InlineValueRequest;
 (function (InlineValueRequest) {
     InlineValueRequest.method = 'textDocument/inlineValue';
+    InlineValueRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     InlineValueRequest.type = new messages_1.ProtocolRequestType(InlineValueRequest.method);
 })(InlineValueRequest = exports.InlineValueRequest || (exports.InlineValueRequest = {}));
 /**
@@ -43391,6 +43726,7 @@ var InlineValueRequest;
 var InlineValueRefreshRequest;
 (function (InlineValueRefreshRequest) {
     InlineValueRefreshRequest.method = `workspace/inlineValue/refresh`;
+    InlineValueRefreshRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     InlineValueRefreshRequest.type = new messages_1.ProtocolRequestType0(InlineValueRefreshRequest.method);
 })(InlineValueRefreshRequest = exports.InlineValueRefreshRequest || (exports.InlineValueRefreshRequest = {}));
 //# sourceMappingURL=protocol.inlineValue.js.map
@@ -43561,7 +43897,9 @@ var DocumentSelector;
  */
 var RegistrationRequest;
 (function (RegistrationRequest) {
-    RegistrationRequest.type = new messages_1.ProtocolRequestType('client/registerCapability');
+    RegistrationRequest.method = 'client/registerCapability';
+    RegistrationRequest.messageDirection = messages_1.MessageDirection.serverToClient;
+    RegistrationRequest.type = new messages_1.ProtocolRequestType(RegistrationRequest.method);
 })(RegistrationRequest = exports.RegistrationRequest || (exports.RegistrationRequest = {}));
 /**
  * The `client/unregisterCapability` request is sent from the server to the client to unregister a previously registered capability
@@ -43569,7 +43907,9 @@ var RegistrationRequest;
  */
 var UnregistrationRequest;
 (function (UnregistrationRequest) {
-    UnregistrationRequest.type = new messages_1.ProtocolRequestType('client/unregisterCapability');
+    UnregistrationRequest.method = 'client/unregisterCapability';
+    UnregistrationRequest.messageDirection = messages_1.MessageDirection.serverToClient;
+    UnregistrationRequest.type = new messages_1.ProtocolRequestType(UnregistrationRequest.method);
 })(UnregistrationRequest = exports.UnregistrationRequest || (exports.UnregistrationRequest = {}));
 var ResourceOperationKind;
 (function (ResourceOperationKind) {
@@ -43687,7 +44027,9 @@ var WorkDoneProgressOptions;
  */
 var InitializeRequest;
 (function (InitializeRequest) {
-    InitializeRequest.type = new messages_1.ProtocolRequestType('initialize');
+    InitializeRequest.method = 'initialize';
+    InitializeRequest.messageDirection = messages_1.MessageDirection.clientToServer;
+    InitializeRequest.type = new messages_1.ProtocolRequestType(InitializeRequest.method);
 })(InitializeRequest = exports.InitializeRequest || (exports.InitializeRequest = {}));
 /**
  * Known error codes for an `InitializeErrorCodes`;
@@ -43709,7 +44051,9 @@ var InitializeErrorCodes;
  */
 var InitializedNotification;
 (function (InitializedNotification) {
-    InitializedNotification.type = new messages_1.ProtocolNotificationType('initialized');
+    InitializedNotification.method = 'initialized';
+    InitializedNotification.messageDirection = messages_1.MessageDirection.clientToServer;
+    InitializedNotification.type = new messages_1.ProtocolNotificationType(InitializedNotification.method);
 })(InitializedNotification = exports.InitializedNotification || (exports.InitializedNotification = {}));
 //---- Shutdown Method ----
 /**
@@ -43720,7 +44064,9 @@ var InitializedNotification;
  */
 var ShutdownRequest;
 (function (ShutdownRequest) {
-    ShutdownRequest.type = new messages_1.ProtocolRequestType0('shutdown');
+    ShutdownRequest.method = 'shutdown';
+    ShutdownRequest.messageDirection = messages_1.MessageDirection.clientToServer;
+    ShutdownRequest.type = new messages_1.ProtocolRequestType0(ShutdownRequest.method);
 })(ShutdownRequest = exports.ShutdownRequest || (exports.ShutdownRequest = {}));
 //---- Exit Notification ----
 /**
@@ -43729,7 +44075,9 @@ var ShutdownRequest;
  */
 var ExitNotification;
 (function (ExitNotification) {
-    ExitNotification.type = new messages_1.ProtocolNotificationType0('exit');
+    ExitNotification.method = 'exit';
+    ExitNotification.messageDirection = messages_1.MessageDirection.clientToServer;
+    ExitNotification.type = new messages_1.ProtocolNotificationType0(ExitNotification.method);
 })(ExitNotification = exports.ExitNotification || (exports.ExitNotification = {}));
 /**
  * The configuration change notification is sent from the client to the server
@@ -43738,7 +44086,9 @@ var ExitNotification;
  */
 var DidChangeConfigurationNotification;
 (function (DidChangeConfigurationNotification) {
-    DidChangeConfigurationNotification.type = new messages_1.ProtocolNotificationType('workspace/didChangeConfiguration');
+    DidChangeConfigurationNotification.method = 'workspace/didChangeConfiguration';
+    DidChangeConfigurationNotification.messageDirection = messages_1.MessageDirection.clientToServer;
+    DidChangeConfigurationNotification.type = new messages_1.ProtocolNotificationType(DidChangeConfigurationNotification.method);
 })(DidChangeConfigurationNotification = exports.DidChangeConfigurationNotification || (exports.DidChangeConfigurationNotification = {}));
 //---- Message show and log notifications ----
 /**
@@ -43769,7 +44119,9 @@ var MessageType;
  */
 var ShowMessageNotification;
 (function (ShowMessageNotification) {
-    ShowMessageNotification.type = new messages_1.ProtocolNotificationType('window/showMessage');
+    ShowMessageNotification.method = 'window/showMessage';
+    ShowMessageNotification.messageDirection = messages_1.MessageDirection.serverToClient;
+    ShowMessageNotification.type = new messages_1.ProtocolNotificationType(ShowMessageNotification.method);
 })(ShowMessageNotification = exports.ShowMessageNotification || (exports.ShowMessageNotification = {}));
 /**
  * The show message request is sent from the server to the client to show a message
@@ -43777,7 +44129,9 @@ var ShowMessageNotification;
  */
 var ShowMessageRequest;
 (function (ShowMessageRequest) {
-    ShowMessageRequest.type = new messages_1.ProtocolRequestType('window/showMessageRequest');
+    ShowMessageRequest.method = 'window/showMessageRequest';
+    ShowMessageRequest.messageDirection = messages_1.MessageDirection.serverToClient;
+    ShowMessageRequest.type = new messages_1.ProtocolRequestType(ShowMessageRequest.method);
 })(ShowMessageRequest = exports.ShowMessageRequest || (exports.ShowMessageRequest = {}));
 /**
  * The log message notification is sent from the server to the client to ask
@@ -43785,7 +44139,9 @@ var ShowMessageRequest;
  */
 var LogMessageNotification;
 (function (LogMessageNotification) {
-    LogMessageNotification.type = new messages_1.ProtocolNotificationType('window/logMessage');
+    LogMessageNotification.method = 'window/logMessage';
+    LogMessageNotification.messageDirection = messages_1.MessageDirection.serverToClient;
+    LogMessageNotification.type = new messages_1.ProtocolNotificationType(LogMessageNotification.method);
 })(LogMessageNotification = exports.LogMessageNotification || (exports.LogMessageNotification = {}));
 //---- Telemetry notification
 /**
@@ -43794,7 +44150,9 @@ var LogMessageNotification;
  */
 var TelemetryEventNotification;
 (function (TelemetryEventNotification) {
-    TelemetryEventNotification.type = new messages_1.ProtocolNotificationType('telemetry/event');
+    TelemetryEventNotification.method = 'telemetry/event';
+    TelemetryEventNotification.messageDirection = messages_1.MessageDirection.serverToClient;
+    TelemetryEventNotification.type = new messages_1.ProtocolNotificationType(TelemetryEventNotification.method);
 })(TelemetryEventNotification = exports.TelemetryEventNotification || (exports.TelemetryEventNotification = {}));
 /**
  * Defines how the host (editor) should sync
@@ -43831,6 +44189,7 @@ var TextDocumentSyncKind;
 var DidOpenTextDocumentNotification;
 (function (DidOpenTextDocumentNotification) {
     DidOpenTextDocumentNotification.method = 'textDocument/didOpen';
+    DidOpenTextDocumentNotification.messageDirection = messages_1.MessageDirection.clientToServer;
     DidOpenTextDocumentNotification.type = new messages_1.ProtocolNotificationType(DidOpenTextDocumentNotification.method);
 })(DidOpenTextDocumentNotification = exports.DidOpenTextDocumentNotification || (exports.DidOpenTextDocumentNotification = {}));
 var TextDocumentContentChangeEvent;
@@ -43862,6 +44221,7 @@ var TextDocumentContentChangeEvent;
 var DidChangeTextDocumentNotification;
 (function (DidChangeTextDocumentNotification) {
     DidChangeTextDocumentNotification.method = 'textDocument/didChange';
+    DidChangeTextDocumentNotification.messageDirection = messages_1.MessageDirection.clientToServer;
     DidChangeTextDocumentNotification.type = new messages_1.ProtocolNotificationType(DidChangeTextDocumentNotification.method);
 })(DidChangeTextDocumentNotification = exports.DidChangeTextDocumentNotification || (exports.DidChangeTextDocumentNotification = {}));
 /**
@@ -43876,6 +44236,7 @@ var DidChangeTextDocumentNotification;
 var DidCloseTextDocumentNotification;
 (function (DidCloseTextDocumentNotification) {
     DidCloseTextDocumentNotification.method = 'textDocument/didClose';
+    DidCloseTextDocumentNotification.messageDirection = messages_1.MessageDirection.clientToServer;
     DidCloseTextDocumentNotification.type = new messages_1.ProtocolNotificationType(DidCloseTextDocumentNotification.method);
 })(DidCloseTextDocumentNotification = exports.DidCloseTextDocumentNotification || (exports.DidCloseTextDocumentNotification = {}));
 /**
@@ -43885,6 +44246,7 @@ var DidCloseTextDocumentNotification;
 var DidSaveTextDocumentNotification;
 (function (DidSaveTextDocumentNotification) {
     DidSaveTextDocumentNotification.method = 'textDocument/didSave';
+    DidSaveTextDocumentNotification.messageDirection = messages_1.MessageDirection.clientToServer;
     DidSaveTextDocumentNotification.type = new messages_1.ProtocolNotificationType(DidSaveTextDocumentNotification.method);
 })(DidSaveTextDocumentNotification = exports.DidSaveTextDocumentNotification || (exports.DidSaveTextDocumentNotification = {}));
 /**
@@ -43913,6 +44275,7 @@ var TextDocumentSaveReason;
 var WillSaveTextDocumentNotification;
 (function (WillSaveTextDocumentNotification) {
     WillSaveTextDocumentNotification.method = 'textDocument/willSave';
+    WillSaveTextDocumentNotification.messageDirection = messages_1.MessageDirection.clientToServer;
     WillSaveTextDocumentNotification.type = new messages_1.ProtocolNotificationType(WillSaveTextDocumentNotification.method);
 })(WillSaveTextDocumentNotification = exports.WillSaveTextDocumentNotification || (exports.WillSaveTextDocumentNotification = {}));
 /**
@@ -43926,6 +44289,7 @@ var WillSaveTextDocumentNotification;
 var WillSaveTextDocumentWaitUntilRequest;
 (function (WillSaveTextDocumentWaitUntilRequest) {
     WillSaveTextDocumentWaitUntilRequest.method = 'textDocument/willSaveWaitUntil';
+    WillSaveTextDocumentWaitUntilRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     WillSaveTextDocumentWaitUntilRequest.type = new messages_1.ProtocolRequestType(WillSaveTextDocumentWaitUntilRequest.method);
 })(WillSaveTextDocumentWaitUntilRequest = exports.WillSaveTextDocumentWaitUntilRequest || (exports.WillSaveTextDocumentWaitUntilRequest = {}));
 /**
@@ -43934,7 +44298,9 @@ var WillSaveTextDocumentWaitUntilRequest;
  */
 var DidChangeWatchedFilesNotification;
 (function (DidChangeWatchedFilesNotification) {
-    DidChangeWatchedFilesNotification.type = new messages_1.ProtocolNotificationType('workspace/didChangeWatchedFiles');
+    DidChangeWatchedFilesNotification.method = 'workspace/didChangeWatchedFiles';
+    DidChangeWatchedFilesNotification.messageDirection = messages_1.MessageDirection.clientToServer;
+    DidChangeWatchedFilesNotification.type = new messages_1.ProtocolNotificationType(DidChangeWatchedFilesNotification.method);
 })(DidChangeWatchedFilesNotification = exports.DidChangeWatchedFilesNotification || (exports.DidChangeWatchedFilesNotification = {}));
 /**
  * The file event type
@@ -43983,7 +44349,9 @@ var WatchKind;
  */
 var PublishDiagnosticsNotification;
 (function (PublishDiagnosticsNotification) {
-    PublishDiagnosticsNotification.type = new messages_1.ProtocolNotificationType('textDocument/publishDiagnostics');
+    PublishDiagnosticsNotification.method = 'textDocument/publishDiagnostics';
+    PublishDiagnosticsNotification.messageDirection = messages_1.MessageDirection.serverToClient;
+    PublishDiagnosticsNotification.type = new messages_1.ProtocolNotificationType(PublishDiagnosticsNotification.method);
 })(PublishDiagnosticsNotification = exports.PublishDiagnosticsNotification || (exports.PublishDiagnosticsNotification = {}));
 /**
  * How a completion was triggered
@@ -44019,6 +44387,7 @@ var CompletionTriggerKind;
 var CompletionRequest;
 (function (CompletionRequest) {
     CompletionRequest.method = 'textDocument/completion';
+    CompletionRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     CompletionRequest.type = new messages_1.ProtocolRequestType(CompletionRequest.method);
 })(CompletionRequest = exports.CompletionRequest || (exports.CompletionRequest = {}));
 /**
@@ -44029,6 +44398,7 @@ var CompletionRequest;
 var CompletionResolveRequest;
 (function (CompletionResolveRequest) {
     CompletionResolveRequest.method = 'completionItem/resolve';
+    CompletionResolveRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     CompletionResolveRequest.type = new messages_1.ProtocolRequestType(CompletionResolveRequest.method);
 })(CompletionResolveRequest = exports.CompletionResolveRequest || (exports.CompletionResolveRequest = {}));
 /**
@@ -44039,6 +44409,7 @@ var CompletionResolveRequest;
 var HoverRequest;
 (function (HoverRequest) {
     HoverRequest.method = 'textDocument/hover';
+    HoverRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     HoverRequest.type = new messages_1.ProtocolRequestType(HoverRequest.method);
 })(HoverRequest = exports.HoverRequest || (exports.HoverRequest = {}));
 /**
@@ -44064,6 +44435,7 @@ var SignatureHelpTriggerKind;
 var SignatureHelpRequest;
 (function (SignatureHelpRequest) {
     SignatureHelpRequest.method = 'textDocument/signatureHelp';
+    SignatureHelpRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     SignatureHelpRequest.type = new messages_1.ProtocolRequestType(SignatureHelpRequest.method);
 })(SignatureHelpRequest = exports.SignatureHelpRequest || (exports.SignatureHelpRequest = {}));
 /**
@@ -44076,6 +44448,7 @@ var SignatureHelpRequest;
 var DefinitionRequest;
 (function (DefinitionRequest) {
     DefinitionRequest.method = 'textDocument/definition';
+    DefinitionRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     DefinitionRequest.type = new messages_1.ProtocolRequestType(DefinitionRequest.method);
 })(DefinitionRequest = exports.DefinitionRequest || (exports.DefinitionRequest = {}));
 /**
@@ -44087,6 +44460,7 @@ var DefinitionRequest;
 var ReferencesRequest;
 (function (ReferencesRequest) {
     ReferencesRequest.method = 'textDocument/references';
+    ReferencesRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     ReferencesRequest.type = new messages_1.ProtocolRequestType(ReferencesRequest.method);
 })(ReferencesRequest = exports.ReferencesRequest || (exports.ReferencesRequest = {}));
 /**
@@ -44098,6 +44472,7 @@ var ReferencesRequest;
 var DocumentHighlightRequest;
 (function (DocumentHighlightRequest) {
     DocumentHighlightRequest.method = 'textDocument/documentHighlight';
+    DocumentHighlightRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     DocumentHighlightRequest.type = new messages_1.ProtocolRequestType(DocumentHighlightRequest.method);
 })(DocumentHighlightRequest = exports.DocumentHighlightRequest || (exports.DocumentHighlightRequest = {}));
 /**
@@ -44109,6 +44484,7 @@ var DocumentHighlightRequest;
 var DocumentSymbolRequest;
 (function (DocumentSymbolRequest) {
     DocumentSymbolRequest.method = 'textDocument/documentSymbol';
+    DocumentSymbolRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     DocumentSymbolRequest.type = new messages_1.ProtocolRequestType(DocumentSymbolRequest.method);
 })(DocumentSymbolRequest = exports.DocumentSymbolRequest || (exports.DocumentSymbolRequest = {}));
 /**
@@ -44117,6 +44493,7 @@ var DocumentSymbolRequest;
 var CodeActionRequest;
 (function (CodeActionRequest) {
     CodeActionRequest.method = 'textDocument/codeAction';
+    CodeActionRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     CodeActionRequest.type = new messages_1.ProtocolRequestType(CodeActionRequest.method);
 })(CodeActionRequest = exports.CodeActionRequest || (exports.CodeActionRequest = {}));
 /**
@@ -44127,6 +44504,7 @@ var CodeActionRequest;
 var CodeActionResolveRequest;
 (function (CodeActionResolveRequest) {
     CodeActionResolveRequest.method = 'codeAction/resolve';
+    CodeActionResolveRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     CodeActionResolveRequest.type = new messages_1.ProtocolRequestType(CodeActionResolveRequest.method);
 })(CodeActionResolveRequest = exports.CodeActionResolveRequest || (exports.CodeActionResolveRequest = {}));
 /**
@@ -44143,6 +44521,7 @@ var CodeActionResolveRequest;
 var WorkspaceSymbolRequest;
 (function (WorkspaceSymbolRequest) {
     WorkspaceSymbolRequest.method = 'workspace/symbol';
+    WorkspaceSymbolRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     WorkspaceSymbolRequest.type = new messages_1.ProtocolRequestType(WorkspaceSymbolRequest.method);
 })(WorkspaceSymbolRequest = exports.WorkspaceSymbolRequest || (exports.WorkspaceSymbolRequest = {}));
 /**
@@ -44154,6 +44533,7 @@ var WorkspaceSymbolRequest;
 var WorkspaceSymbolResolveRequest;
 (function (WorkspaceSymbolResolveRequest) {
     WorkspaceSymbolResolveRequest.method = 'workspaceSymbol/resolve';
+    WorkspaceSymbolResolveRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     WorkspaceSymbolResolveRequest.type = new messages_1.ProtocolRequestType(WorkspaceSymbolResolveRequest.method);
 })(WorkspaceSymbolResolveRequest = exports.WorkspaceSymbolResolveRequest || (exports.WorkspaceSymbolResolveRequest = {}));
 /**
@@ -44162,6 +44542,7 @@ var WorkspaceSymbolResolveRequest;
 var CodeLensRequest;
 (function (CodeLensRequest) {
     CodeLensRequest.method = 'textDocument/codeLens';
+    CodeLensRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     CodeLensRequest.type = new messages_1.ProtocolRequestType(CodeLensRequest.method);
 })(CodeLensRequest = exports.CodeLensRequest || (exports.CodeLensRequest = {}));
 /**
@@ -44170,6 +44551,7 @@ var CodeLensRequest;
 var CodeLensResolveRequest;
 (function (CodeLensResolveRequest) {
     CodeLensResolveRequest.method = 'codeLens/resolve';
+    CodeLensResolveRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     CodeLensResolveRequest.type = new messages_1.ProtocolRequestType(CodeLensResolveRequest.method);
 })(CodeLensResolveRequest = exports.CodeLensResolveRequest || (exports.CodeLensResolveRequest = {}));
 /**
@@ -44180,6 +44562,7 @@ var CodeLensResolveRequest;
 var CodeLensRefreshRequest;
 (function (CodeLensRefreshRequest) {
     CodeLensRefreshRequest.method = `workspace/codeLens/refresh`;
+    CodeLensRefreshRequest.messageDirection = messages_1.MessageDirection.serverToClient;
     CodeLensRefreshRequest.type = new messages_1.ProtocolRequestType0(CodeLensRefreshRequest.method);
 })(CodeLensRefreshRequest = exports.CodeLensRefreshRequest || (exports.CodeLensRefreshRequest = {}));
 /**
@@ -44188,6 +44571,7 @@ var CodeLensRefreshRequest;
 var DocumentLinkRequest;
 (function (DocumentLinkRequest) {
     DocumentLinkRequest.method = 'textDocument/documentLink';
+    DocumentLinkRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     DocumentLinkRequest.type = new messages_1.ProtocolRequestType(DocumentLinkRequest.method);
 })(DocumentLinkRequest = exports.DocumentLinkRequest || (exports.DocumentLinkRequest = {}));
 /**
@@ -44198,6 +44582,7 @@ var DocumentLinkRequest;
 var DocumentLinkResolveRequest;
 (function (DocumentLinkResolveRequest) {
     DocumentLinkResolveRequest.method = 'documentLink/resolve';
+    DocumentLinkResolveRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     DocumentLinkResolveRequest.type = new messages_1.ProtocolRequestType(DocumentLinkResolveRequest.method);
 })(DocumentLinkResolveRequest = exports.DocumentLinkResolveRequest || (exports.DocumentLinkResolveRequest = {}));
 /**
@@ -44206,6 +44591,7 @@ var DocumentLinkResolveRequest;
 var DocumentFormattingRequest;
 (function (DocumentFormattingRequest) {
     DocumentFormattingRequest.method = 'textDocument/formatting';
+    DocumentFormattingRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     DocumentFormattingRequest.type = new messages_1.ProtocolRequestType(DocumentFormattingRequest.method);
 })(DocumentFormattingRequest = exports.DocumentFormattingRequest || (exports.DocumentFormattingRequest = {}));
 /**
@@ -44214,6 +44600,7 @@ var DocumentFormattingRequest;
 var DocumentRangeFormattingRequest;
 (function (DocumentRangeFormattingRequest) {
     DocumentRangeFormattingRequest.method = 'textDocument/rangeFormatting';
+    DocumentRangeFormattingRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     DocumentRangeFormattingRequest.type = new messages_1.ProtocolRequestType(DocumentRangeFormattingRequest.method);
 })(DocumentRangeFormattingRequest = exports.DocumentRangeFormattingRequest || (exports.DocumentRangeFormattingRequest = {}));
 /**
@@ -44222,6 +44609,7 @@ var DocumentRangeFormattingRequest;
 var DocumentOnTypeFormattingRequest;
 (function (DocumentOnTypeFormattingRequest) {
     DocumentOnTypeFormattingRequest.method = 'textDocument/onTypeFormatting';
+    DocumentOnTypeFormattingRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     DocumentOnTypeFormattingRequest.type = new messages_1.ProtocolRequestType(DocumentOnTypeFormattingRequest.method);
 })(DocumentOnTypeFormattingRequest = exports.DocumentOnTypeFormattingRequest || (exports.DocumentOnTypeFormattingRequest = {}));
 //---- Rename ----------------------------------------------
@@ -44239,6 +44627,7 @@ var PrepareSupportDefaultBehavior;
 var RenameRequest;
 (function (RenameRequest) {
     RenameRequest.method = 'textDocument/rename';
+    RenameRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     RenameRequest.type = new messages_1.ProtocolRequestType(RenameRequest.method);
 })(RenameRequest = exports.RenameRequest || (exports.RenameRequest = {}));
 /**
@@ -44249,6 +44638,7 @@ var RenameRequest;
 var PrepareRenameRequest;
 (function (PrepareRenameRequest) {
     PrepareRenameRequest.method = 'textDocument/prepareRename';
+    PrepareRenameRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     PrepareRenameRequest.type = new messages_1.ProtocolRequestType(PrepareRenameRequest.method);
 })(PrepareRenameRequest = exports.PrepareRenameRequest || (exports.PrepareRenameRequest = {}));
 /**
@@ -44257,13 +44647,17 @@ var PrepareRenameRequest;
  */
 var ExecuteCommandRequest;
 (function (ExecuteCommandRequest) {
-    ExecuteCommandRequest.type = new messages_1.ProtocolRequestType('workspace/executeCommand');
+    ExecuteCommandRequest.method = 'workspace/executeCommand';
+    ExecuteCommandRequest.messageDirection = messages_1.MessageDirection.clientToServer;
+    ExecuteCommandRequest.type = new messages_1.ProtocolRequestType(ExecuteCommandRequest.method);
 })(ExecuteCommandRequest = exports.ExecuteCommandRequest || (exports.ExecuteCommandRequest = {}));
 /**
  * A request sent from the server to the client to modified certain resources.
  */
 var ApplyWorkspaceEditRequest;
 (function (ApplyWorkspaceEditRequest) {
+    ApplyWorkspaceEditRequest.method = 'workspace/applyEdit';
+    ApplyWorkspaceEditRequest.messageDirection = messages_1.MessageDirection.serverToClient;
     ApplyWorkspaceEditRequest.type = new messages_1.ProtocolRequestType('workspace/applyEdit');
 })(ApplyWorkspaceEditRequest = exports.ApplyWorkspaceEditRequest || (exports.ApplyWorkspaceEditRequest = {}));
 //# sourceMappingURL=protocol.js.map
@@ -44290,6 +44684,7 @@ const messages_1 = __webpack_require__(6140);
 var LinkedEditingRangeRequest;
 (function (LinkedEditingRangeRequest) {
     LinkedEditingRangeRequest.method = 'textDocument/linkedEditingRange';
+    LinkedEditingRangeRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     LinkedEditingRangeRequest.type = new messages_1.ProtocolRequestType(LinkedEditingRangeRequest.method);
 })(LinkedEditingRangeRequest = exports.LinkedEditingRangeRequest || (exports.LinkedEditingRangeRequest = {}));
 //# sourceMappingURL=protocol.linkedEditingRange.js.map
@@ -44365,6 +44760,7 @@ var MonikerKind;
 var MonikerRequest;
 (function (MonikerRequest) {
     MonikerRequest.method = 'textDocument/moniker';
+    MonikerRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     MonikerRequest.type = new messages_1.ProtocolRequestType(MonikerRequest.method);
 })(MonikerRequest = exports.MonikerRequest || (exports.MonikerRequest = {}));
 //# sourceMappingURL=protocol.moniker.js.map
@@ -44527,6 +44923,7 @@ var NotebookDocument;
 var NotebookDocumentSyncRegistrationType;
 (function (NotebookDocumentSyncRegistrationType) {
     NotebookDocumentSyncRegistrationType.method = 'notebookDocument/sync';
+    NotebookDocumentSyncRegistrationType.messageDirection = messages_1.MessageDirection.clientToServer;
     NotebookDocumentSyncRegistrationType.type = new messages_1.RegistrationType(NotebookDocumentSyncRegistrationType.method);
 })(NotebookDocumentSyncRegistrationType = exports.NotebookDocumentSyncRegistrationType || (exports.NotebookDocumentSyncRegistrationType = {}));
 /**
@@ -44537,7 +44934,9 @@ var NotebookDocumentSyncRegistrationType;
 var DidOpenNotebookDocumentNotification;
 (function (DidOpenNotebookDocumentNotification) {
     DidOpenNotebookDocumentNotification.method = 'notebookDocument/didOpen';
+    DidOpenNotebookDocumentNotification.messageDirection = messages_1.MessageDirection.clientToServer;
     DidOpenNotebookDocumentNotification.type = new messages_1.ProtocolNotificationType(DidOpenNotebookDocumentNotification.method);
+    DidOpenNotebookDocumentNotification.registrationMethod = NotebookDocumentSyncRegistrationType.method;
 })(DidOpenNotebookDocumentNotification = exports.DidOpenNotebookDocumentNotification || (exports.DidOpenNotebookDocumentNotification = {}));
 var NotebookCellArrayChange;
 (function (NotebookCellArrayChange) {
@@ -44558,7 +44957,9 @@ var NotebookCellArrayChange;
 var DidChangeNotebookDocumentNotification;
 (function (DidChangeNotebookDocumentNotification) {
     DidChangeNotebookDocumentNotification.method = 'notebookDocument/didChange';
+    DidChangeNotebookDocumentNotification.messageDirection = messages_1.MessageDirection.clientToServer;
     DidChangeNotebookDocumentNotification.type = new messages_1.ProtocolNotificationType(DidChangeNotebookDocumentNotification.method);
+    DidChangeNotebookDocumentNotification.registrationMethod = NotebookDocumentSyncRegistrationType.method;
 })(DidChangeNotebookDocumentNotification = exports.DidChangeNotebookDocumentNotification || (exports.DidChangeNotebookDocumentNotification = {}));
 /**
  * A notification sent when a notebook document is saved.
@@ -44568,7 +44969,9 @@ var DidChangeNotebookDocumentNotification;
 var DidSaveNotebookDocumentNotification;
 (function (DidSaveNotebookDocumentNotification) {
     DidSaveNotebookDocumentNotification.method = 'notebookDocument/didSave';
+    DidSaveNotebookDocumentNotification.messageDirection = messages_1.MessageDirection.clientToServer;
     DidSaveNotebookDocumentNotification.type = new messages_1.ProtocolNotificationType(DidSaveNotebookDocumentNotification.method);
+    DidSaveNotebookDocumentNotification.registrationMethod = NotebookDocumentSyncRegistrationType.method;
 })(DidSaveNotebookDocumentNotification = exports.DidSaveNotebookDocumentNotification || (exports.DidSaveNotebookDocumentNotification = {}));
 /**
  * A notification sent when a notebook closes.
@@ -44578,7 +44981,9 @@ var DidSaveNotebookDocumentNotification;
 var DidCloseNotebookDocumentNotification;
 (function (DidCloseNotebookDocumentNotification) {
     DidCloseNotebookDocumentNotification.method = 'notebookDocument/didClose';
+    DidCloseNotebookDocumentNotification.messageDirection = messages_1.MessageDirection.clientToServer;
     DidCloseNotebookDocumentNotification.type = new messages_1.ProtocolNotificationType(DidCloseNotebookDocumentNotification.method);
+    DidCloseNotebookDocumentNotification.registrationMethod = NotebookDocumentSyncRegistrationType.method;
 })(DidCloseNotebookDocumentNotification = exports.DidCloseNotebookDocumentNotification || (exports.DidCloseNotebookDocumentNotification = {}));
 //# sourceMappingURL=protocol.notebook.js.map
 
@@ -44612,6 +45017,7 @@ var WorkDoneProgress;
 var WorkDoneProgressCreateRequest;
 (function (WorkDoneProgressCreateRequest) {
     WorkDoneProgressCreateRequest.method = 'window/workDoneProgress/create';
+    WorkDoneProgressCreateRequest.messageDirection = messages_1.MessageDirection.serverToClient;
     WorkDoneProgressCreateRequest.type = new messages_1.ProtocolRequestType(WorkDoneProgressCreateRequest.method);
 })(WorkDoneProgressCreateRequest = exports.WorkDoneProgressCreateRequest || (exports.WorkDoneProgressCreateRequest = {}));
 /**
@@ -44621,6 +45027,7 @@ var WorkDoneProgressCreateRequest;
 var WorkDoneProgressCancelNotification;
 (function (WorkDoneProgressCancelNotification) {
     WorkDoneProgressCancelNotification.method = 'window/workDoneProgress/cancel';
+    WorkDoneProgressCancelNotification.messageDirection = messages_1.MessageDirection.clientToServer;
     WorkDoneProgressCancelNotification.type = new messages_1.ProtocolNotificationType(WorkDoneProgressCancelNotification.method);
 })(WorkDoneProgressCancelNotification = exports.WorkDoneProgressCancelNotification || (exports.WorkDoneProgressCancelNotification = {}));
 //# sourceMappingURL=protocol.progress.js.map
@@ -44648,6 +45055,7 @@ const messages_1 = __webpack_require__(6140);
 var SelectionRangeRequest;
 (function (SelectionRangeRequest) {
     SelectionRangeRequest.method = 'textDocument/selectionRange';
+    SelectionRangeRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     SelectionRangeRequest.type = new messages_1.ProtocolRequestType(SelectionRangeRequest.method);
 })(SelectionRangeRequest = exports.SelectionRangeRequest || (exports.SelectionRangeRequest = {}));
 //# sourceMappingURL=protocol.selectionRange.js.map
@@ -44682,7 +45090,9 @@ var SemanticTokensRegistrationType;
 var SemanticTokensRequest;
 (function (SemanticTokensRequest) {
     SemanticTokensRequest.method = 'textDocument/semanticTokens/full';
+    SemanticTokensRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     SemanticTokensRequest.type = new messages_1.ProtocolRequestType(SemanticTokensRequest.method);
+    SemanticTokensRequest.registrationMethod = SemanticTokensRegistrationType.method;
 })(SemanticTokensRequest = exports.SemanticTokensRequest || (exports.SemanticTokensRequest = {}));
 /**
  * @since 3.16.0
@@ -44690,7 +45100,9 @@ var SemanticTokensRequest;
 var SemanticTokensDeltaRequest;
 (function (SemanticTokensDeltaRequest) {
     SemanticTokensDeltaRequest.method = 'textDocument/semanticTokens/full/delta';
+    SemanticTokensDeltaRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     SemanticTokensDeltaRequest.type = new messages_1.ProtocolRequestType(SemanticTokensDeltaRequest.method);
+    SemanticTokensDeltaRequest.registrationMethod = SemanticTokensRegistrationType.method;
 })(SemanticTokensDeltaRequest = exports.SemanticTokensDeltaRequest || (exports.SemanticTokensDeltaRequest = {}));
 /**
  * @since 3.16.0
@@ -44698,7 +45110,9 @@ var SemanticTokensDeltaRequest;
 var SemanticTokensRangeRequest;
 (function (SemanticTokensRangeRequest) {
     SemanticTokensRangeRequest.method = 'textDocument/semanticTokens/range';
+    SemanticTokensRangeRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     SemanticTokensRangeRequest.type = new messages_1.ProtocolRequestType(SemanticTokensRangeRequest.method);
+    SemanticTokensRangeRequest.registrationMethod = SemanticTokensRegistrationType.method;
 })(SemanticTokensRangeRequest = exports.SemanticTokensRangeRequest || (exports.SemanticTokensRangeRequest = {}));
 /**
  * @since 3.16.0
@@ -44706,6 +45120,7 @@ var SemanticTokensRangeRequest;
 var SemanticTokensRefreshRequest;
 (function (SemanticTokensRefreshRequest) {
     SemanticTokensRefreshRequest.method = `workspace/semanticTokens/refresh`;
+    SemanticTokensRefreshRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     SemanticTokensRefreshRequest.type = new messages_1.ProtocolRequestType0(SemanticTokensRefreshRequest.method);
 })(SemanticTokensRefreshRequest = exports.SemanticTokensRefreshRequest || (exports.SemanticTokensRefreshRequest = {}));
 //# sourceMappingURL=protocol.semanticTokens.js.map
@@ -44735,6 +45150,7 @@ const messages_1 = __webpack_require__(6140);
 var ShowDocumentRequest;
 (function (ShowDocumentRequest) {
     ShowDocumentRequest.method = 'window/showDocument';
+    ShowDocumentRequest.messageDirection = messages_1.MessageDirection.serverToClient;
     ShowDocumentRequest.type = new messages_1.ProtocolRequestType(ShowDocumentRequest.method);
 })(ShowDocumentRequest = exports.ShowDocumentRequest || (exports.ShowDocumentRequest = {}));
 //# sourceMappingURL=protocol.showDocument.js.map
@@ -44764,6 +45180,7 @@ let __noDynamicImport;
 var TypeDefinitionRequest;
 (function (TypeDefinitionRequest) {
     TypeDefinitionRequest.method = 'textDocument/typeDefinition';
+    TypeDefinitionRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     TypeDefinitionRequest.type = new messages_1.ProtocolRequestType(TypeDefinitionRequest.method);
 })(TypeDefinitionRequest = exports.TypeDefinitionRequest || (exports.TypeDefinitionRequest = {}));
 //# sourceMappingURL=protocol.typeDefinition.js.map
@@ -44791,6 +45208,7 @@ const messages_1 = __webpack_require__(6140);
 var TypeHierarchyPrepareRequest;
 (function (TypeHierarchyPrepareRequest) {
     TypeHierarchyPrepareRequest.method = 'textDocument/prepareTypeHierarchy';
+    TypeHierarchyPrepareRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     TypeHierarchyPrepareRequest.type = new messages_1.ProtocolRequestType(TypeHierarchyPrepareRequest.method);
 })(TypeHierarchyPrepareRequest = exports.TypeHierarchyPrepareRequest || (exports.TypeHierarchyPrepareRequest = {}));
 /**
@@ -44801,6 +45219,7 @@ var TypeHierarchyPrepareRequest;
 var TypeHierarchySupertypesRequest;
 (function (TypeHierarchySupertypesRequest) {
     TypeHierarchySupertypesRequest.method = 'typeHierarchy/supertypes';
+    TypeHierarchySupertypesRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     TypeHierarchySupertypesRequest.type = new messages_1.ProtocolRequestType(TypeHierarchySupertypesRequest.method);
 })(TypeHierarchySupertypesRequest = exports.TypeHierarchySupertypesRequest || (exports.TypeHierarchySupertypesRequest = {}));
 /**
@@ -44811,6 +45230,7 @@ var TypeHierarchySupertypesRequest;
 var TypeHierarchySubtypesRequest;
 (function (TypeHierarchySubtypesRequest) {
     TypeHierarchySubtypesRequest.method = 'typeHierarchy/subtypes';
+    TypeHierarchySubtypesRequest.messageDirection = messages_1.MessageDirection.clientToServer;
     TypeHierarchySubtypesRequest.type = new messages_1.ProtocolRequestType(TypeHierarchySubtypesRequest.method);
 })(TypeHierarchySubtypesRequest = exports.TypeHierarchySubtypesRequest || (exports.TypeHierarchySubtypesRequest = {}));
 //# sourceMappingURL=protocol.typeHierarchy.js.map
@@ -44834,7 +45254,9 @@ const messages_1 = __webpack_require__(6140);
  */
 var WorkspaceFoldersRequest;
 (function (WorkspaceFoldersRequest) {
-    WorkspaceFoldersRequest.type = new messages_1.ProtocolRequestType0('workspace/workspaceFolders');
+    WorkspaceFoldersRequest.method = 'workspace/workspaceFolders';
+    WorkspaceFoldersRequest.messageDirection = messages_1.MessageDirection.serverToClient;
+    WorkspaceFoldersRequest.type = new messages_1.ProtocolRequestType0(WorkspaceFoldersRequest.method);
 })(WorkspaceFoldersRequest = exports.WorkspaceFoldersRequest || (exports.WorkspaceFoldersRequest = {}));
 /**
  * The `workspace/didChangeWorkspaceFolders` notification is sent from the client to the server when the workspace
@@ -44842,7 +45264,9 @@ var WorkspaceFoldersRequest;
  */
 var DidChangeWorkspaceFoldersNotification;
 (function (DidChangeWorkspaceFoldersNotification) {
-    DidChangeWorkspaceFoldersNotification.type = new messages_1.ProtocolNotificationType('workspace/didChangeWorkspaceFolders');
+    DidChangeWorkspaceFoldersNotification.method = 'workspace/didChangeWorkspaceFolders';
+    DidChangeWorkspaceFoldersNotification.messageDirection = messages_1.MessageDirection.clientToServer;
+    DidChangeWorkspaceFoldersNotification.type = new messages_1.ProtocolNotificationType(DidChangeWorkspaceFoldersNotification.method);
 })(DidChangeWorkspaceFoldersNotification = exports.DidChangeWorkspaceFoldersNotification || (exports.DidChangeWorkspaceFoldersNotification = {}));
 //# sourceMappingURL=protocol.workspaceFolder.js.map
 
@@ -45148,7 +45572,7 @@ var Location;
      */
     function is(value) {
         var candidate = value;
-        return Is.defined(candidate) && Range.is(candidate.range) && (Is.string(candidate.uri) || Is.undefined(candidate.uri));
+        return Is.objectLiteral(candidate) && Range.is(candidate.range) && (Is.string(candidate.uri) || Is.undefined(candidate.uri));
     }
     Location.is = is;
 })(Location || (Location = {}));
@@ -45174,7 +45598,7 @@ var LocationLink;
      */
     function is(value) {
         var candidate = value;
-        return Is.defined(candidate) && Range.is(candidate.targetRange) && Is.string(candidate.targetUri)
+        return Is.objectLiteral(candidate) && Range.is(candidate.targetRange) && Is.string(candidate.targetUri)
             && Range.is(candidate.targetSelectionRange)
             && (Range.is(candidate.originSelectionRange) || Is.undefined(candidate.originSelectionRange));
     }
@@ -45273,7 +45697,7 @@ var FoldingRangeKind;
      */
     FoldingRangeKind.Comment = 'comment';
     /**
-     * Folding range for a imports or includes
+     * Folding range for an import or include
      */
     FoldingRangeKind.Imports = 'imports';
     /**
@@ -45492,7 +45916,7 @@ var TextEdit;
     }
     TextEdit.replace = replace;
     /**
-     * Creates a insert text edit.
+     * Creates an insert text edit.
      * @param position The position to insert the text at.
      * @param newText The text to be inserted.
      */
@@ -46434,6 +46858,7 @@ var SymbolKind;
 })(SymbolKind || (SymbolKind = {}));
 /**
  * Symbol tags are extra annotations that tweak the rendering of a symbol.
+ *
  * @since 3.16
  */
 var SymbolTag;

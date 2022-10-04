@@ -5935,30 +5935,30 @@ class DartDebugSession extends debugadapter_1.DebugSession {
             return completer.promise;
         });
     }
-    startProgress(progressID, message) {
+    startProgress(progressId, message) {
         message = message || "Working";
         message = message.endsWith("…") || message.endsWith("...") ? message : `${message}…`;
         // TODO: It's not clear if passing an empty string for title is reasonable, but it works better in VS Code.
         // See https://github.com/microsoft/language-server-protocol/issues/1025.
         // TODO: Revert these changes if VS Code removes the delay.
         // https://github.com/microsoft/vscode/issues/101405
-        // this.sendEvent(new ProgressStartEvent(progressID, "", e.message));
-        this.sendEvent(new debugadapter_1.Event("dart.progressStart", { progressID, message }));
+        // this.sendEvent(new ProgressStartEvent(progressId, "", e.message));
+        this.sendEvent(new debugadapter_1.Event("dart.progressStart", { progressId, message }));
     }
-    updateProgress(progressID, message) {
+    updateProgress(progressId, message) {
         if (!message)
             return;
         message = message.endsWith("…") || message.endsWith("...") ? message : `${message}…`;
         // TODO: Revert these changes if VS Code removes the delay.
         // https://github.com/microsoft/vscode/issues/101405
-        // this.sendEvent(new ProgressUpdateEvent(progressID, message));
-        this.sendEvent(new debugadapter_1.Event("dart.progressUpdate", { progressID, message }));
+        // this.sendEvent(new ProgressUpdateEvent(progressId, message));
+        this.sendEvent(new debugadapter_1.Event("dart.progressUpdate", { progressId, message }));
     }
-    endProgress(progressID, message) {
+    endProgress(progressId, message) {
         // TODO: Revert these changes if VS Code removes the delay.
         // https://github.com/microsoft/vscode/issues/101405
-        // this.sendEvent(new ProgressEndEvent(progressID, e.message));
-        this.sendEvent(new debugadapter_1.Event("dart.progressEnd", { progressID, message }));
+        // this.sendEvent(new ProgressEndEvent(progressId, e.message));
+        this.sendEvent(new debugadapter_1.Event("dart.progressEnd", { progressId, message }));
     }
     customRequest(request, response, args) {
         const _super = Object.create(null, {
@@ -7127,7 +7127,7 @@ class FlutterDebugSession extends dart_debug_impl_1.DartDebugSession {
             this.updateProgress(constants_1.debugLaunchProgressId, e.message);
     }
     sendProgressEvent(e) {
-        const progressID = `flutter-${e.appId}-${e.progressId}`;
+        const progressId = `flutter-${e.appId}-${e.progressId}`;
         if (e.finished) {
             let finalMessage;
             if (!finalMessage) {
@@ -7136,10 +7136,10 @@ class FlutterDebugSession extends dart_debug_impl_1.DartDebugSession {
                 else if (e.progressId === "hot.restart")
                     finalMessage = "Hot Restart complete!";
             }
-            this.endProgress(progressID, finalMessage);
+            this.endProgress(progressId, finalMessage);
         }
         else {
-            this.startProgress(progressID, e.message);
+            this.startProgress(progressId, e.message);
         }
     }
     handleLogOutput(msg, forceErrorCategory = false) {
@@ -8312,13 +8312,22 @@ exports.WebTestDebugSession = WebTestDebugSession;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.DartCapabilities = void 0;
 const utils_1 = __webpack_require__(4586);
+const constants_1 = __webpack_require__(5628);
 class DartCapabilities {
     constructor(dartVersion) {
         this.version = dartVersion;
     }
     static get empty() { return new DartCapabilities("0.0.0"); }
     get canDefaultLsp() { return (0, utils_1.versionIsAtLeast)(this.version, "2.12.0-0"); }
-    get canDefaultSdkDaps() { return (0, utils_1.versionIsAtLeast)(this.version, "2.18.0-0"); }
+    get canDefaultSdkDaps() {
+        // For Windows, we need a higher version.
+        // https://github.com/Dart-Code/Dart-Code/issues/4149
+        // https://github.com/dart-lang/sdk/commit/1b9adcb502c5e4ec1bc5ce8e8b0387db25216833
+        if (constants_1.isWin)
+            return (0, utils_1.versionIsAtLeast)(this.version, "2.19.0-196");
+        else
+            return (0, utils_1.versionIsAtLeast)(this.version, "2.18.0-0");
+    }
     // This is also missing in v2.10, but assume it will be back in v2.11.
     // https://github.com/dart-lang/sdk/issues/43207
     get includesSourceForSdkLibs() { return (0, utils_1.versionIsAtLeast)(this.version, "2.2.1") && !this.version.startsWith("2.10."); }
@@ -8370,10 +8379,7 @@ class FlutterCapabilities {
         this.version = flutterVersion;
     }
     static get empty() { return new FlutterCapabilities("0.0.0"); }
-    // Disabled due to https://github.com/flutter/flutter/issues/111045.
-    // Needs re-enabling for Flutter versions that are using a version of DDS that
-    // contains https://github.com/dart-lang/sdk/commit/94a64a01f630e4a96b6b3cf3ec3c9a6b3f5f3445
-    get canDefaultSdkDaps() { return (0, utils_1.versionIsAtLeast)(this.version, "9.9.9"); }
+    get canDefaultSdkDaps() { return (0, utils_1.versionIsAtLeast)(this.version, "3.4.0-33"); }
     get supportsCreateSkeleton() { return (0, utils_1.versionIsAtLeast)(this.version, "2.5.0"); }
     get supportsCreatingSamples() { return (0, utils_1.versionIsAtLeast)(this.version, "1.0.0"); }
     get hasLatestStructuredErrorsWork() { return (0, utils_1.versionIsAtLeast)(this.version, "1.21.0-5.0"); }
@@ -8390,8 +8396,8 @@ class FlutterCapabilities {
     get supportsDevToolsServerAddress() { return (0, utils_1.versionIsAtLeast)(this.version, "1.26.0-12"); }
     get supportsRunningIntegrationTests() { return (0, utils_1.versionIsAtLeast)(this.version, "2.2.0-10"); }
     get supportsSdkDap() { return (0, utils_1.versionIsAtLeast)(this.version, "2.13.0-0"); }
-    get supportsEnvInSdkDAP() { return (0, utils_1.versionIsAtLeast)(this.version, "3.3.0"); }
-    get supportsWebInSdkDAP() { return (0, utils_1.versionIsAtLeast)(this.version, "3.3.0"); }
+    get supportsEnvInSdkDAP() { return (0, utils_1.versionIsAtLeast)(this.version, "3.4.0-18"); }
+    get supportsWebInSdkDAP() { return (0, utils_1.versionIsAtLeast)(this.version, "3.4.0-18"); }
     get requiresDdsDisabledForSdkDapTestRuns() { return !(0, utils_1.versionIsAtLeast)(this.version, "3.1.0"); }
     // TODO: Update these (along with Dart) when supported.
     get webSupportsEvaluation() { return false; }
@@ -8443,9 +8449,9 @@ exports.VmServiceCapabilities = VmServiceCapabilities;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.openAction = exports.wantToTryDevToolsPrompt = exports.issueTrackerUri = exports.issueTrackerAction = exports.stagehandInstallationInstructionsUrl = exports.pubGlobalDocsUrl = exports.debugTerminatingProgressId = exports.debugLaunchProgressId = exports.restartReasonSave = exports.restartReasonManual = exports.showLogAction = exports.stopLoggingAction = exports.IS_RUNNING_LOCALLY_CONTEXT = exports.PUB_OUTDATED_SUPPORTED_CONTEXT = exports.DART_IS_CAPTURING_LOGS_CONTEXT = exports.DART_DEP_FILE_NODE_CONTEXT = exports.DART_DEP_FOLDER_NODE_CONTEXT = exports.DART_DEP_TRANSITIVE_DEPENDENCY_PACKAGE_NODE_CONTEXT = exports.DART_DEP_DEV_DEPENDENCY_PACKAGE_NODE_CONTEXT = exports.DART_DEP_DEPENDENCY_PACKAGE_NODE_CONTEXT = exports.DART_DEP_PACKAGE_NODE_CONTEXT = exports.DART_DEP_TRANSITIVE_DEPENDENCIES_NODE_CONTEXT = exports.DART_DEP_DEV_DEPENDENCIES_NODE_CONTEXT = exports.DART_DEP_DEPENDENCIES_NODE_CONTEXT = exports.DART_DEP_PROJECT_NODE_CONTEXT = exports.IS_LSP_CONTEXT = exports.FLUTTER_DOWNLOAD_URL = exports.DART_DOWNLOAD_URL = exports.androidStudioPaths = exports.analyzerSnapshotPath = exports.pubSnapshotPath = exports.flutterPath = exports.pubPath = exports.dartDocPath = exports.dartVMPath = exports.getExecutableName = exports.executableNames = exports.androidStudioExecutableNames = exports.platformEol = exports.platformDisplayName = exports.dartPlatformName = exports.isChromeOS = exports.isLinux = exports.isMac = exports.isWin = exports.isDartCodeTestRun = exports.isCI = exports.debugAdapterPath = exports.flutterExtensionIdentifier = exports.dartCodeExtensionIdentifier = void 0;
-exports.validMethodNameRegex = exports.cancelAction = exports.runFlutterCreatePrompt = exports.vmServiceHttpLinkPattern = exports.vmServiceListeningBannerPattern = exports.reactivateDevToolsAction = exports.openSettingsAction = exports.recommendedSettingsUrl = exports.showRecommendedSettingsAction = exports.iUnderstandAction = exports.skipAction = exports.noAction = exports.yesAction = exports.useRecommendedSettingsPromptKey = exports.installFlutterExtensionPromptKey = exports.userPromptContextPrefix = exports.debugAnywayAction = exports.showErrorsAction = exports.isInFlutterReleaseModeDebugSessionContext = exports.isInFlutterProfileModeDebugSessionContext = exports.isInFlutterDebugModeDebugSessionContext = exports.HAS_LAST_TEST_DEBUG_CONFIG = exports.HAS_LAST_DEBUG_CONFIG = exports.REFACTOR_ANYWAY = exports.REFACTOR_FAILED_DOC_MODIFIED = exports.FLUTTER_CREATE_PROJECT_TRIGGER_FILE = exports.DART_CREATE_PROJECT_TRIGGER_FILE = exports.CHROME_OS_VM_SERVICE_PORT = exports.CHROME_OS_DEVTOOLS_PORT = exports.projectSearchCacheTimeInMs = exports.projectSearchProgressNotificationDelayInMs = exports.projectSearchProgressText = exports.pleaseReportBug = exports.longRepeatPromptThreshold = exports.noRepeatPromptThreshold = exports.fortyHoursInMs = exports.twentyHoursInMs = exports.twoHoursInMs = exports.twentyMinutesInMs = exports.tenMinutesInMs = exports.fiveMinutesInMs = exports.initializingFlutterMessage = exports.modifyingFilesOutsideWorkspaceInfoUrl = exports.skipThisSurveyAction = exports.takeSurveyAction = exports.flutterSurveyDataUrl = exports.moreInfoAction = exports.doNotAskAgainAction = exports.notTodayAction = exports.alwaysOpenAction = void 0;
-exports.MAX_VERSION = exports.defaultLaunchJson = exports.dartRecommendedConfig = exports.devToolsPages = exports.performancePage = exports.cpuProfilerPage = exports.widgetInspectorPage = exports.validClassNameRegex = void 0;
+exports.wantToTryDevToolsPrompt = exports.issueTrackerUri = exports.issueTrackerAction = exports.stagehandInstallationInstructionsUrl = exports.pubGlobalDocsUrl = exports.debugTerminatingProgressId = exports.debugLaunchProgressId = exports.restartReasonSave = exports.restartReasonManual = exports.captureLogsMaxLineLength = exports.showLogAction = exports.stopLoggingAction = exports.IS_RUNNING_LOCALLY_CONTEXT = exports.PUB_OUTDATED_SUPPORTED_CONTEXT = exports.DART_IS_CAPTURING_LOGS_CONTEXT = exports.DART_DEP_FILE_NODE_CONTEXT = exports.DART_DEP_FOLDER_NODE_CONTEXT = exports.DART_DEP_TRANSITIVE_DEPENDENCY_PACKAGE_NODE_CONTEXT = exports.DART_DEP_DEV_DEPENDENCY_PACKAGE_NODE_CONTEXT = exports.DART_DEP_DEPENDENCY_PACKAGE_NODE_CONTEXT = exports.DART_DEP_PACKAGE_NODE_CONTEXT = exports.DART_DEP_TRANSITIVE_DEPENDENCIES_NODE_CONTEXT = exports.DART_DEP_DEV_DEPENDENCIES_NODE_CONTEXT = exports.DART_DEP_DEPENDENCIES_NODE_CONTEXT = exports.DART_DEP_PROJECT_NODE_CONTEXT = exports.IS_LSP_CONTEXT = exports.FLUTTER_DOWNLOAD_URL = exports.DART_DOWNLOAD_URL = exports.androidStudioPaths = exports.analyzerSnapshotPath = exports.pubSnapshotPath = exports.flutterPath = exports.pubPath = exports.dartDocPath = exports.dartVMPath = exports.getExecutableName = exports.executableNames = exports.androidStudioExecutableNames = exports.platformEol = exports.platformDisplayName = exports.dartPlatformName = exports.isChromeOS = exports.isLinux = exports.isMac = exports.isWin = exports.isDartCodeTestRun = exports.isCI = exports.debugAdapterPath = exports.flutterExtensionIdentifier = exports.dartCodeExtensionIdentifier = void 0;
+exports.cancelAction = exports.runFlutterCreatePrompt = exports.vmServiceHttpLinkPattern = exports.vmServiceListeningBannerPattern = exports.reactivateDevToolsAction = exports.openSettingsAction = exports.recommendedSettingsUrl = exports.showRecommendedSettingsAction = exports.iUnderstandAction = exports.skipAction = exports.noAction = exports.yesAction = exports.useRecommendedSettingsPromptKey = exports.installFlutterExtensionPromptKey = exports.userPromptContextPrefix = exports.debugAnywayAction = exports.showErrorsAction = exports.isInFlutterReleaseModeDebugSessionContext = exports.isInFlutterProfileModeDebugSessionContext = exports.isInFlutterDebugModeDebugSessionContext = exports.HAS_LAST_TEST_DEBUG_CONFIG = exports.HAS_LAST_DEBUG_CONFIG = exports.REFACTOR_ANYWAY = exports.REFACTOR_FAILED_DOC_MODIFIED = exports.FLUTTER_CREATE_PROJECT_TRIGGER_FILE = exports.DART_CREATE_PROJECT_TRIGGER_FILE = exports.CHROME_OS_VM_SERVICE_PORT = exports.CHROME_OS_DEVTOOLS_PORT = exports.projectSearchCacheTimeInMs = exports.projectSearchProgressNotificationDelayInMs = exports.projectSearchProgressText = exports.pleaseReportBug = exports.longRepeatPromptThreshold = exports.noRepeatPromptThreshold = exports.fortyHoursInMs = exports.twentyHoursInMs = exports.twoHoursInMs = exports.twentyMinutesInMs = exports.tenMinutesInMs = exports.fiveMinutesInMs = exports.initializingFlutterMessage = exports.modifyingFilesOutsideWorkspaceInfoUrl = exports.skipThisSurveyAction = exports.takeSurveyAction = exports.flutterSurveyDataUrl = exports.moreInfoAction = exports.doNotAskAgainAction = exports.notTodayAction = exports.alwaysOpenAction = exports.openAction = void 0;
+exports.MAX_VERSION = exports.defaultLaunchJson = exports.dartRecommendedConfig = exports.devToolsPages = exports.performancePage = exports.cpuProfilerPage = exports.widgetInspectorPage = exports.validClassNameRegex = exports.validMethodNameRegex = void 0;
 const fs = __webpack_require__(7147);
 const utils_1 = __webpack_require__(4586);
 exports.dartCodeExtensionIdentifier = "Dart-Code.dart-code";
@@ -8496,6 +8502,7 @@ exports.PUB_OUTDATED_SUPPORTED_CONTEXT = "dart-code:pubOutdatedSupported";
 exports.IS_RUNNING_LOCALLY_CONTEXT = "dart-code:isRunningLocally";
 exports.stopLoggingAction = "Stop Logging";
 exports.showLogAction = "Show Log";
+exports.captureLogsMaxLineLength = 999999999;
 exports.restartReasonManual = "manual";
 exports.restartReasonSave = "save";
 exports.debugLaunchProgressId = "launch";
@@ -9482,7 +9489,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.disposeAll = exports.isWebDevice = exports.escapeDartString = exports.generateTestNameFromFileName = exports.clamp = exports.asHex = exports.asHexColor = exports.notNullOrUndefined = exports.notNull = exports.notUndefined = exports.nullToUndefined = exports.BufferedLogger = exports.errorString = exports.usingCustomScript = exports.isStableSdk = exports.pubVersionIsAtLeast = exports.versionIsAtLeast = exports.isDartSdkFromFlutter = exports.uriToFilePath = exports.findFileInAncestor = exports.PromiseCompleter = exports.escapeRegExp = exports.filenameSafe = exports.flatMapAsync = exports.flatMap = exports.uniq = void 0;
+exports.withTimeout = exports.disposeAll = exports.isWebDevice = exports.escapeDartString = exports.generateTestNameFromFileName = exports.clamp = exports.asHex = exports.asHexColor = exports.notNullOrUndefined = exports.notNull = exports.notUndefined = exports.nullToUndefined = exports.BufferedLogger = exports.errorString = exports.usingCustomScript = exports.isStableSdk = exports.pubVersionIsAtLeast = exports.versionIsAtLeast = exports.isDartSdkFromFlutter = exports.uriToFilePath = exports.findFileInAncestor = exports.PromiseCompleter = exports.escapeRegExp = exports.filenameSafe = exports.flatMapAsync = exports.flatMap = exports.uniq = void 0;
 const fs = __webpack_require__(7147);
 const path = __webpack_require__(1017);
 const semver = __webpack_require__(1249);
@@ -9705,6 +9712,24 @@ function disposeAll(disposables) {
     }
 }
 exports.disposeAll = disposeAll;
+function withTimeout(promise, message, seconds = 360) {
+    return __awaiter(this, void 0, void 0, function* () {
+        return new Promise((resolve, reject) => {
+            // Set a timeout to reject the promise after the timeout period.
+            const timeoutTimer = setTimeout(() => {
+                const msg = typeof message === "string" ? message : message();
+                reject(new Error(`${msg} within ${seconds}s`));
+            }, seconds * 1000);
+            // When the main promise completes, cancel the timeout and return its result.
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises
+            promise.then((result) => {
+                clearTimeout(timeoutTimer);
+                resolve(result);
+            });
+        });
+    });
+}
+exports.withTimeout = withTimeout;
 
 
 /***/ }),
@@ -9882,7 +9907,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.nextAvailableFilename = exports.normalizeSlashes = exports.areSameFolder = exports.mkDirRecursive = exports.getRandomInt = exports.tryDeleteFile = exports.getSdkVersion = exports.findProjectFolders = exports.resolveTildePaths = exports.extractFlutterSdkPathFromPackagesFile = exports.referencesBuildRunner = exports.pubspecContentReferencesFlutterSdk = exports.projectReferencesFlutterSdk = exports.isFlutterProjectFolder = exports.isFlutterRepoAsync = exports.hasCreateTriggerFileAsync = exports.hasPubspecAsync = exports.hasPubspec = exports.hasPackageMapFile = exports.readDirAsync = exports.getChildFolders = exports.isEqualOrWithinPath = exports.isWithinPathOrEqual = exports.isWithinPath = exports.forceWindowsDriveLetterToUppercase = exports.fsPath = void 0;
+exports.nextAvailableFilename = exports.normalizeSlashes = exports.areSameFolder = exports.mkDirRecursive = exports.getRandomInt = exports.tryDeleteFile = exports.getSdkVersion = exports.findProjectFolders = exports.resolveTildePaths = exports.extractFlutterSdkPathFromPackagesFile = exports.referencesBuildRunner = exports.pubspecContentReferencesFlutterSdk = exports.projectReferencesFlutterSdk = exports.isFlutterProjectFolder = exports.isFlutterRepoAsync = exports.hasCreateTriggerFileAsync = exports.hasPubspecAsync = exports.hasPubspec = exports.hasPackageMapFile = exports.readDirAsync = exports.getChildFolders = exports.findCommonAncestorFolder = exports.isEqualOrWithinPath = exports.isWithinPathOrEqual = exports.isWithinPath = exports.forceWindowsDriveLetterToUppercase = exports.fsPath = void 0;
 const fs = __webpack_require__(7147);
 const os = __webpack_require__(2037);
 const path = __webpack_require__(1017);
@@ -9932,6 +9957,28 @@ function isEqualOrWithinPath(file, folder) {
     return relative === "" || (!!relative && !relative.startsWith("..") && !path.isAbsolute(relative));
 }
 exports.isEqualOrWithinPath = isEqualOrWithinPath;
+function findCommonAncestorFolder(folderPaths) {
+    if (!folderPaths.length)
+        return undefined;
+    const commonAncestorSegments = folderPaths[0].split(path.sep);
+    for (const folderPath of folderPaths.slice(1)) {
+        const pathSegments = folderPath.split(path.sep);
+        for (let i = 0; i < Math.min(commonAncestorSegments.length, pathSegments.length); i++) {
+            if (commonAncestorSegments[i] !== pathSegments[i]) {
+                commonAncestorSegments.splice(i);
+                break;
+            }
+        }
+        if (commonAncestorSegments.length > pathSegments.length) {
+            commonAncestorSegments.splice(pathSegments.length);
+        }
+    }
+    // If we got up to the root, consider that not a match.
+    if (commonAncestorSegments.length <= 1)
+        return undefined;
+    return commonAncestorSegments.join(path.sep);
+}
+exports.findCommonAncestorFolder = findCommonAncestorFolder;
 function getChildFolders(logger, parent, options) {
     return __awaiter(this, void 0, void 0, function* () {
         if (!fs.existsSync(parent))
@@ -10469,30 +10516,31 @@ function toBuffer(data) {
   return buf;
 }
 
-try {
-  const bufferUtil = __webpack_require__(1891);
+module.exports = {
+  concat,
+  mask: _mask,
+  toArrayBuffer,
+  toBuffer,
+  unmask: _unmask
+};
 
-  module.exports = {
-    concat,
-    mask(source, mask, output, offset, length) {
+/* istanbul ignore else  */
+if (!process.env.WS_NO_BUFFER_UTIL) {
+  try {
+    const bufferUtil = __webpack_require__(1891);
+
+    module.exports.mask = function (source, mask, output, offset, length) {
       if (length < 48) _mask(source, mask, output, offset, length);
       else bufferUtil.mask(source, mask, output, offset, length);
-    },
-    toArrayBuffer,
-    toBuffer,
-    unmask(buffer, mask) {
+    };
+
+    module.exports.unmask = function (buffer, mask) {
       if (buffer.length < 32) _unmask(buffer, mask);
       else bufferUtil.unmask(buffer, mask);
-    }
-  };
-} catch (e) /* istanbul ignore next */ {
-  module.exports = {
-    concat,
-    mask: _mask,
-    toArrayBuffer,
-    toBuffer,
-    unmask: _unmask
-  };
+    };
+  } catch (e) {
+    // Continue regardless of the error.
+  }
 }
 
 
@@ -13045,22 +13093,23 @@ function _isValidUTF8(buf) {
   return true;
 }
 
-try {
-  const isValidUTF8 = __webpack_require__(311);
+module.exports = {
+  isValidStatusCode,
+  isValidUTF8: _isValidUTF8,
+  tokenChars
+};
 
-  module.exports = {
-    isValidStatusCode,
-    isValidUTF8(buf) {
+/* istanbul ignore else  */
+if (!process.env.WS_NO_UTF_8_VALIDATE) {
+  try {
+    const isValidUTF8 = __webpack_require__(311);
+
+    module.exports.isValidUTF8 = function (buf) {
       return buf.length < 150 ? _isValidUTF8(buf) : isValidUTF8(buf);
-    },
-    tokenChars
-  };
-} catch (e) /* istanbul ignore next */ {
-  module.exports = {
-    isValidStatusCode,
-    isValidUTF8: _isValidUTF8,
-    tokenChars
-  };
+    };
+  } catch (e) {
+    // Continue regardless of the error.
+  }
 }
 
 
@@ -13302,21 +13351,36 @@ class WebSocketServer extends EventEmitter {
   handleUpgrade(req, socket, head, cb) {
     socket.on('error', socketOnError);
 
-    const key =
-      req.headers['sec-websocket-key'] !== undefined
-        ? req.headers['sec-websocket-key']
-        : false;
+    const key = req.headers['sec-websocket-key'];
     const version = +req.headers['sec-websocket-version'];
 
-    if (
-      req.method !== 'GET' ||
-      req.headers.upgrade.toLowerCase() !== 'websocket' ||
-      !key ||
-      !keyRegex.test(key) ||
-      (version !== 8 && version !== 13) ||
-      !this.shouldHandle(req)
-    ) {
-      return abortHandshake(socket, 400);
+    if (req.method !== 'GET') {
+      const message = 'Invalid HTTP method';
+      abortHandshakeOrEmitwsClientError(this, req, socket, 405, message);
+      return;
+    }
+
+    if (req.headers.upgrade.toLowerCase() !== 'websocket') {
+      const message = 'Invalid Upgrade header';
+      abortHandshakeOrEmitwsClientError(this, req, socket, 400, message);
+      return;
+    }
+
+    if (!key || !keyRegex.test(key)) {
+      const message = 'Missing or invalid Sec-WebSocket-Key header';
+      abortHandshakeOrEmitwsClientError(this, req, socket, 400, message);
+      return;
+    }
+
+    if (version !== 8 && version !== 13) {
+      const message = 'Missing or invalid Sec-WebSocket-Version header';
+      abortHandshakeOrEmitwsClientError(this, req, socket, 400, message);
+      return;
+    }
+
+    if (!this.shouldHandle(req)) {
+      abortHandshake(socket, 400);
+      return;
     }
 
     const secWebSocketProtocol = req.headers['sec-websocket-protocol'];
@@ -13326,7 +13390,9 @@ class WebSocketServer extends EventEmitter {
       try {
         protocols = subprotocol.parse(secWebSocketProtocol);
       } catch (err) {
-        return abortHandshake(socket, 400);
+        const message = 'Invalid Sec-WebSocket-Protocol header';
+        abortHandshakeOrEmitwsClientError(this, req, socket, 400, message);
+        return;
       }
     }
 
@@ -13351,7 +13417,10 @@ class WebSocketServer extends EventEmitter {
           extensions[PerMessageDeflate.extensionName] = perMessageDeflate;
         }
       } catch (err) {
-        return abortHandshake(socket, 400);
+        const message =
+          'Invalid or unacceptable Sec-WebSocket-Extensions header';
+        abortHandshakeOrEmitwsClientError(this, req, socket, 400, message);
+        return;
       }
     }
 
@@ -13518,7 +13587,7 @@ function emitClose(server) {
 }
 
 /**
- * Handle premature socket errors.
+ * Handle socket errors.
  *
  * @private
  */
@@ -13536,27 +13605,54 @@ function socketOnError() {
  * @private
  */
 function abortHandshake(socket, code, message, headers) {
-  if (socket.writable) {
-    message = message || http.STATUS_CODES[code];
-    headers = {
-      Connection: 'close',
-      'Content-Type': 'text/html',
-      'Content-Length': Buffer.byteLength(message),
-      ...headers
-    };
+  //
+  // The socket is writable unless the user destroyed or ended it before calling
+  // `server.handleUpgrade()` or in the `verifyClient` function, which is a user
+  // error. Handling this does not make much sense as the worst that can happen
+  // is that some of the data written by the user might be discarded due to the
+  // call to `socket.end()` below, which triggers an `'error'` event that in
+  // turn causes the socket to be destroyed.
+  //
+  message = message || http.STATUS_CODES[code];
+  headers = {
+    Connection: 'close',
+    'Content-Type': 'text/html',
+    'Content-Length': Buffer.byteLength(message),
+    ...headers
+  };
 
-    socket.write(
-      `HTTP/1.1 ${code} ${http.STATUS_CODES[code]}\r\n` +
-        Object.keys(headers)
-          .map((h) => `${h}: ${headers[h]}`)
-          .join('\r\n') +
-        '\r\n\r\n' +
-        message
-    );
+  socket.once('finish', socket.destroy);
+
+  socket.end(
+    `HTTP/1.1 ${code} ${http.STATUS_CODES[code]}\r\n` +
+      Object.keys(headers)
+        .map((h) => `${h}: ${headers[h]}`)
+        .join('\r\n') +
+      '\r\n\r\n' +
+      message
+  );
+}
+
+/**
+ * Emit a `'wsClientError'` event on a `WebSocketServer` if there is at least
+ * one listener for it, otherwise call `abortHandshake()`.
+ *
+ * @param {WebSocketServer} server The WebSocket server
+ * @param {http.IncomingMessage} req The request object
+ * @param {(net.Socket|tls.Socket)} socket The socket of the upgrade request
+ * @param {Number} code The HTTP response status code
+ * @param {String} message The HTTP response body
+ * @private
+ */
+function abortHandshakeOrEmitwsClientError(server, req, socket, code, message) {
+  if (server.listenerCount('wsClientError')) {
+    const err = new Error(message);
+    Error.captureStackTrace(err, abortHandshakeOrEmitwsClientError);
+
+    server.emit('wsClientError', err, socket, req);
+  } else {
+    abortHandshake(socket, code, message);
   }
-
-  socket.removeListener('error', socketOnError);
-  socket.destroy();
 }
 
 
@@ -14281,11 +14377,11 @@ function initAsClient(websocket, address, protocols, options) {
     ? parsedUrl.hostname.slice(1, -1)
     : parsedUrl.hostname;
   opts.headers = {
+    ...opts.headers,
     'Sec-WebSocket-Version': opts.protocolVersion,
     'Sec-WebSocket-Key': key,
     Connection: 'Upgrade',
-    Upgrade: 'websocket',
-    ...opts.headers
+    Upgrade: 'websocket'
   };
   opts.path = parsedUrl.pathname + parsedUrl.search;
   opts.timeout = opts.handshakeTimeout;
@@ -14339,7 +14435,11 @@ function initAsClient(websocket, address, protocols, options) {
 
   if (opts.followRedirects) {
     if (websocket._redirects === 0) {
-      websocket._originalHost = parsedUrl.host;
+      websocket._originalUnixSocket = isUnixSocket;
+      websocket._originalSecure = isSecure;
+      websocket._originalHostOrSocketPath = isUnixSocket
+        ? opts.socketPath
+        : parsedUrl.host;
 
       const headers = options && options.headers;
 
@@ -14354,18 +14454,27 @@ function initAsClient(websocket, address, protocols, options) {
           options.headers[key.toLowerCase()] = value;
         }
       }
-    } else if (
-      websocket.listenerCount('redirect') === 0 &&
-      parsedUrl.host !== websocket._originalHost
-    ) {
-      //
-      // Match curl 7.77.0 behavior and drop the following headers. These
-      // headers are also dropped when following a redirect to a subdomain.
-      //
-      delete opts.headers.authorization;
-      delete opts.headers.cookie;
-      delete opts.headers.host;
-      opts.auth = undefined;
+    } else if (websocket.listenerCount('redirect') === 0) {
+      const isSameHost = isUnixSocket
+        ? websocket._originalUnixSocket
+          ? opts.socketPath === websocket._originalHostOrSocketPath
+          : false
+        : websocket._originalUnixSocket
+        ? false
+        : parsedUrl.host === websocket._originalHostOrSocketPath;
+
+      if (!isSameHost || (websocket._originalSecure && !isSecure)) {
+        //
+        // Match curl 7.77.0 behavior and drop the following headers. These
+        // headers are also dropped when following a redirect to a subdomain.
+        //
+        delete opts.headers.authorization;
+        delete opts.headers.cookie;
+
+        if (!isSameHost) delete opts.headers.host;
+
+        opts.auth = undefined;
+      }
     }
 
     //
@@ -14456,6 +14565,11 @@ function initAsClient(websocket, address, protocols, options) {
     if (websocket.readyState !== WebSocket.CONNECTING) return;
 
     req = websocket._req = null;
+
+    if (res.headers.upgrade.toLowerCase() !== 'websocket') {
+      abortHandshake(websocket, socket, 'Invalid Upgrade header');
+      return;
+    }
 
     const digest = createHash('sha1')
       .update(key + GUID)

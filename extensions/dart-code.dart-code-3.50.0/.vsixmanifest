@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 	<PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
 		<Metadata>
-			<Identity Language="en-US" Id="dart-code" Version="3.48.4" Publisher="Dart-Code" />
+			<Identity Language="en-US" Id="dart-code" Version="3.50.0" Publisher="Dart-Code" />
 			<DisplayName>Dart</DisplayName>
 			<Description xml:space="preserve">Dart language support and debugger for Visual Studio Code.</Description>
 			<Tags>dart,flutter,fuchsia,multi-root ready,keybindings,debuggers,Dart,__ext_dart</Tags>
