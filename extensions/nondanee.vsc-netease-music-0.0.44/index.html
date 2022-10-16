@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="referrer" content="never">
+    <meta name="referrer" content="no-referrer">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; connect-src *; media-src * vscode-resource: blob:">
+	<base>
+	<script>
+		const host = '127.0.0.1:16363'
+		const audio = new Audio()
+		const Lyric = lrcs => {
+			const parsed = {}
+			const secondify = point => point.split(':').reduce((before, current) => before * 60 + (parseFloat(current) || 0), 0).toFixed(2)
+			const parse = lrc => lrc.trim().split('\n').filter(item => item).forEach(line => {
+				const points = line.match(/\[\d+:\d+\.*\d*\]/g) || []
+				const text = line.replace(/\[[^\]]*:[^\]]*\]/g, '').trim()
+				points
+				.map(point => point.slice(1, point.length - 1).replace(/^0+|0+$/g, ''))
+				.forEach(point => point in parsed ? parsed[point].push(text) : parsed[point] = [text])
+			})
+			lrcs.filter(lrc => lrc).forEach(parse)
+			const timeline = Object.entries(parsed).map(entry => [secondify(entry[0]), entry[1]]).sort((x, y) => x[0] - y[0])
+			let cursor = 0
+			return timeline.length ? second => (timeline[cursor] && second > timeline[cursor][0]) ? timeline[cursor ++][1].join('  ') : null : null
+		}
+
+		const mpris = window.navigator.userAgent.includes('Linux')
+
+		let song = null
+		let lyric = null
+		let audioProxy = (window.origin || '').startsWith('vscode')
+			? `http://${host}`
+			: `/proxy/${host.split(':')[1]}`
+		fetch(audioProxy).then(response => audioProxy = response.url.replace(/\/+$/, ''))
+
+		/*
+		// websocket
+		const webSocket = new WebSocket(`ws://${host}`)
+		const postMessage = (type, body) => webSocket.send(JSON.stringify({ type, body }))
+
+		// http
+		const postMessage = (type, body) => fetch(`http://${host}/receiver`, { method: 'POST', body: JSON.stringify({ type, body }) })
+		*/
+
+		// webview api
+		const native = acquireVsCodeApi()
+		const postMessage = (type, body) => native.postMessage({ type, body })
+
+		const mediaSessionHelper = new Proxy({
+			setMetadata: song => {
+				navigator.mediaSession.metadata = new MediaMetadata({
+					title: song.name,
+					artist: song.artists.map(artist => artist.name).join(' / '),
+					album: song.album.name,
+					artwork: [{
+						src: song.cover + '?param=200y200',
+						sizes: '200x200',
+						type: 'image/jpeg'
+					}]
+				})
+				navigator.mediaSession.setActionHandler('previoustrack', song.source.type === 'radio' ? null : () => postMessage('command', { action: 'previous' }))
+			},
+			enableAction: () => {
+				navigator.mediaSession.setActionHandler('nexttrack', () => postMessage('command', { action: 'next' }))
+			},
+			disableAction: () => {
+				navigator.mediaSession.setActionHandler('play', null)
+				navigator.mediaSession.setActionHandler('pause', null)
+			}
+		}, {
+			get: (target, property) => (...payload) => {
+				try {
+					target[property](...payload)
+				} catch (e) { console.warn(e) }
+			}
+		})
+
+		if (mpris) {
+			mediaSessionHelper.disableAction()
+		} else {
+			mediaSessionHelper.enableAction()
+		}
+
+		const audioEventListener = {
+			play: () => postMessage('event', { name: 'play' }),
+			pause: () => postMessage('event', { name: 'pause' }),
+			ended: () => postMessage('event', { name: 'end', data: song }),
+			timeupdate: () => {
+				const update = lyric ? lyric(audio.currentTime) : null
+				if (update) postMessage('event', { name: 'lyric', data: update })
+			},
+			volumechange: () => {
+				const { muted, volume } = audio
+				postMessage('event', { name: 'volume', data: { muted, value: volume } })
+			},
+			loadedmetadata: () => {
+				song.duration = audio.duration
+				if (!mpris) mediaSessionHelper.setMetadata(song)
+				postMessage('event', { name: 'load', data: song })
+			},
+			error: event => {
+				if (event.target.error.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) {
+					postMessage('event', { name: 'error', data: song })
+				}
+			},
+		}
+
+		Object.entries(audioEventListener).forEach(entry => audio.addEventListener.apply(audio, entry))
+
+		const receiveMessage = message => {
+			message = typeof message === 'object' ? message : JSON.parse(message)
+			const { command, data } = message || {}
+
+			switch (command) {
+				case 'load': {
+					song = data.song
+					lyric = Lyric(data.lyric)
+					const path = song.source.type === 'djradio'
+						? `program/${song.id}`
+						: `song/${song.id}`
+					audio.src = `${audioProxy}/${path}`
+					if (data.action) audio.play()
+					return
+				}
+				case 'stop': {
+					song = null
+					lyric = null
+					audio.src = ''
+					return
+				}
+				case 'play': {
+					if (audio.paused) audio.play()
+					return
+				}
+				case 'pause': {
+					if (!audio.paused) audio.pause()
+					return
+				}
+				case 'mute': {
+					if (!audio.muted) audio.muted = true
+					return
+				}
+				case 'unmute': {
+					if (audio.muted) audio.muted = false
+					return
+				}
+				case 'volumeChange': {
+					if (data.value != null) return audio.volume = data.value
+					if (audio.muted) audio.muted = false
+					const step = 0.2
+					const volume = (parseInt(audio.volume / step) + 1) * step
+					audio.volume = volume > 1 ? 0 : volume
+					return
+				}
+				case 'trash': {
+					const { id } = song || {}
+					const data = { id, time: parseInt(audio.currentTime)} 
+					postMessage('event', { name: 'trash', data })
+					return
+				}
+				default:
+			}			
+		}
+
+		/*
+		// websocket
+		webSocket.onmessage = event => receiveMessage(event.data)
+
+		// long polling
+		const connect = () => fetch(`http://${host}`).then(response => response.status === 204 ? connect() : response.json()).catch(() => connect())
+		const polling = () => connect().then(message => (receiveMessage(message), polling()))
+		polling()
+
+		// sse
+		const eventSource = new EventSource(`http://${host}/sender`)
+		eventSource.onmessage = event => receiveMessage(event.data)
+		*/
+
+		// webview api
+		window.onmessage = event => receiveMessage(event.data)
+
+		const ready = () => {
+			document.onclick = null
+			document.ontouchend = null
+			postMessage('event', { name: 'ready' })
+			document.body.innerHTML = 'Please preserve this webview tab'
+		}
+
+		let previousColor
+		const observer = new MutationObserver((mutations) => {
+			const color = getComputedStyle(document.documentElement).getPropertyValue('--vscode-statusBar-foreground')
+			if (previousColor === color) return
+			postMessage('event', { name: 'theme', data: color })
+			previousColor = color
+		});
+
+		const prepare = () => {
+			(new Audio('./silence.mp3')).play()
+			.then(ready)
+			.catch(error => {
+				console.log(error)
+				if (error.name === 'NotAllowedError') {
+					document.onclick = ready
+					document.ontouchend = ready
+				} else {
+					postMessage('echo', `${error.name}: ${error.message}`)
+				}
+			})
+			observer.observe(document.documentElement, { attributeFilter: ['style'] })
+		}
+
+		// webSocket.onopen = prepare
+		window.onload = prepare
+		// eventSource.onopen = () => prepare().then(() => eventSource.onopen = null)
+	</script>
+</head>
+<body>
+	Please interact with the document first otherwise play() will failed
+</body>
+</html>

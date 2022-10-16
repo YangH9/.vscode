@@ -1,0 +1,489 @@
+{
+	"name": "vsc-netease-music",
+	"displayName": "VSC Netease Music",
+	"description": "UNOFFICIAL Netease Music extension for Visual Studio Code",
+	"version": "0.0.44",
+	"icon": "icon.png",
+	"publisher": "nondanee",
+	"repository": "https://github.com/nondanee/vsc-netease-music.git",
+	"license": "MIT",
+	"engines": {
+		"vscode": "^1.35.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"activationEvents": [
+		"onCommand:neteasemusic.start",
+		"onCommand:neteasemusic.reset"
+	],
+	"main": "./extension",
+	"contributes": {
+		"commands": [
+			{
+				"command": "neteasemusic.reset",
+				"title": "%command.neteasemusic.reset%",
+				"category": "%category.neteasemusic%"
+			},
+			{
+				"command": "neteasemusic.start",
+				"title": "%command.neteasemusic.start%",
+				"category": "%category.neteasemusic%"
+			},
+			{
+				"command": "neteasemusic.stop",
+				"title": "%command.neteasemusic.stop%",
+				"category": "%category.neteasemusic%"
+			},
+			{
+				"command": "neteasemusic.play",
+				"title": "%command.neteasemusic.play%",
+				"category": "%category.neteasemusic%"
+			},
+			{
+				"command": "neteasemusic.pause",
+				"title": "%command.neteasemusic.pause%",
+				"category": "%category.neteasemusic%"
+			},
+			{
+				"command": "neteasemusic.auto.play.pause",
+				"title": "%command.neteasemusic.auto.play.pause%",
+				"category": "%category.neteasemusic%"
+			},
+			{
+				"command": "neteasemusic.mute",
+				"title": "%command.neteasemusic.mute%",
+				"category": "%category.neteasemusic%"
+			},
+			{
+				"command": "neteasemusic.unmute",
+				"title": "%command.neteasemusic.unmute%",
+				"category": "%category.neteasemusic%"
+			},
+			{
+				"command": "neteasemusic.auto.mute.unmute",
+				"title": "%command.neteasemusic.auto.mute.unmute%",
+				"category": "%category.neteasemusic%"
+			},
+			{
+				"command": "neteasemusic.volume",
+				"title": "%command.neteasemusic.volume%",
+				"category": "%category.neteasemusic%"
+			},
+			{
+				"command": "neteasemusic.previous",
+				"title": "%command.neteasemusic.previous%",
+				"category": "%category.neteasemusic%"
+			},
+			{
+				"command": "neteasemusic.next",
+				"title": "%command.neteasemusic.next%",
+				"category": "%category.neteasemusic%"
+			},
+			{
+				"command": "neteasemusic.list",
+				"title": "%command.neteasemusic.list%",
+				"category": "%category.neteasemusic%"
+			},
+			{
+				"command": "neteasemusic.list.edit",
+				"title": "%command.neteasemusic.list.edit%",
+				"category": "%category.neteasemusic%"
+			},
+			{
+				"command": "neteasemusic.trash",
+				"title": "%command.neteasemusic.trash%",
+				"category": "%category.neteasemusic%"
+			},
+			{
+				"command": "neteasemusic.like",
+				"title": "%command.neteasemusic.like%",
+				"category": "%category.neteasemusic%"
+			},
+			{
+				"command": "neteasemusic.dislike",
+				"title": "%command.neteasemusic.dislike%",
+				"category": "%category.neteasemusic%"
+			},
+			{
+				"command": "neteasemusic.search",
+				"title": "%command.neteasemusic.search%",
+				"category": "%category.neteasemusic%"
+			},
+			{
+				"command": "neteasemusic.login",
+				"title": "%command.neteasemusic.login%",
+				"category": "%category.neteasemusic%"
+			},
+			{
+				"command": "neteasemusic.login.cookie",
+				"title": "%command.neteasemusic.login.cookie%",
+				"category": "%category.neteasemusic%"
+			},
+			{
+				"command": "neteasemusic.logout",
+				"title": "%command.neteasemusic.logout%",
+				"category": "%category.neteasemusic%"
+			},
+			{
+				"command": "neteasemusic.sign",
+				"title": "%command.neteasemusic.sign%",
+				"category": "%category.neteasemusic%"
+			},
+			{
+				"command": "neteasemusic.recommend.song",
+				"title": "%command.neteasemusic.recommend.song%",
+				"category": "%category.neteasemusic.recommend%"
+			},
+			{
+				"command": "neteasemusic.recommend.playlist",
+				"title": "%command.neteasemusic.recommend.playlist%",
+				"category": "%category.neteasemusic.recommend%"
+			},
+			{
+				"command": "neteasemusic.recommend.radio",
+				"title": "%command.neteasemusic.recommend.radio%",
+				"category": "%category.neteasemusic.recommend%"
+			},
+			{
+				"command": "neteasemusic.user.playlist",
+				"title": "%command.neteasemusic.user.playlist%",
+				"category": "%category.neteasemusic.my%"
+			},
+			{
+				"command": "neteasemusic.user.artist",
+				"title": "%command.neteasemusic.user.artist%",
+				"category": "%category.neteasemusic.my%"
+			},
+			{
+				"command": "neteasemusic.user.album",
+				"title": "%command.neteasemusic.user.album%",
+				"category": "%category.neteasemusic.my%"
+			},
+			{
+				"command": "neteasemusic.user.djradio",
+				"title": "%command.neteasemusic.user.djradio%",
+				"category": "%category.neteasemusic.my%"
+			},
+			{
+				"command": "neteasemusic.user.record",
+				"title": "%command.neteasemusic.user.record%",
+				"category": "%category.neteasemusic.my%"
+			},
+			{
+				"command": "neteasemusic.new.song",
+				"title": "%command.neteasemusic.new.song%",
+				"category": "%category.neteasemusic.discover%"
+			},
+			{
+				"command": "neteasemusic.new.album",
+				"title": "%command.neteasemusic.new.album%",
+				"category": "%category.neteasemusic.discover%"
+			},
+			{
+				"command": "neteasemusic.playlist.highquality",
+				"title": "%command.neteasemusic.playlist.highquality%",
+				"category": "%category.neteasemusic.discover%"
+			},
+			{
+				"command": "neteasemusic.playlist.hot",
+				"title": "%command.neteasemusic.playlist.hot%",
+				"category": "%category.neteasemusic.discover%"
+			},
+			{
+				"command": "neteasemusic.toplist",
+				"title": "%command.neteasemusic.toplist%",
+				"category": "%category.neteasemusic.discover%"
+			},
+			{
+				"command": "neteasemusic.more",
+				"title": "%command.neteasemusic.more%",
+				"category": "%category.neteasemusic%"
+			},
+			{
+				"command": "neteasemusic.mode.loop",
+				"title": "%command.neteasemusic.mode.loop%",
+				"category": "%category.neteasemusic.mode%"
+			},
+			{
+				"command": "neteasemusic.mode.repeat",
+				"title": "%command.neteasemusic.mode.repeat%",
+				"category": "%category.neteasemusic.mode%"
+			},
+			{
+				"command": "neteasemusic.mode.random",
+				"title": "%command.neteasemusic.mode.random%",
+				"category": "%category.neteasemusic.mode%"
+			},
+			{
+				"command": "neteasemusic.mode.intelligent",
+				"title": "%command.neteasemusic.mode.intelligent%",
+				"category": "%category.neteasemusic.mode%"
+			}
+		],
+		"keybindings": [
+			{
+				"command": "neteasemusic.auto.mute.unmute",
+				"key": "alt+m",
+				"mac": "alt+m",
+				"when": "neteasemusic.on && neteasemusic.track"
+			},
+			{
+				"command": "neteasemusic.previous",
+				"key": "alt+,",
+				"mac": "alt+,",
+				"when": "neteasemusic.on && neteasemusic.track && !neteasemusic.radio"
+			},
+			{
+				"command": "neteasemusic.next",
+				"key": "alt+.",
+				"mac": "alt+.",
+				"when": "neteasemusic.on && neteasemusic.track"
+			},
+			{
+				"command": "neteasemusic.auto.play.pause",
+				"key": "alt+/",
+				"mac": "alt+/",
+				"when": "neteasemusic.on && neteasemusic.track"
+			}
+		],
+		"configuration": {
+			"type": "object",
+			"title": "%category.neteasemusic%",
+			"properties": {
+				"NeteaseMusic.Popup.appearance": {
+					"type": "string",
+					"default": "always",
+					"enum": [
+						"always",
+						"onerror",
+						"never"
+					],
+					"scope": "machine",
+					"description": "%description.neteasemusic.popup.appearance%",
+					"enumDescriptions": [
+						"%enum.neteasemusic.popup.appearance.always%",
+						"%enum.neteasemusic.popup.appearance.onerror%",
+						"%enum.neteasemusic.popup.appearance.never%"
+					]
+				},
+				"NeteaseMusic.API.SSL": {
+					"type": "boolean",
+					"default": true,
+					"scope": "machine",
+					"description": "%description.neteasemusic.api.ssl%"
+				},
+				"NeteaseMusic.SSL.strict": {
+					"type": "boolean",
+					"default": true,
+					"scope": "machine",
+					"description": "%description.neteasemusic.ssl.strict%"
+				},
+				"NeteaseMusic.CDN.redirect": {
+					"type": "boolean",
+					"default": true,
+					"scope": "machine",
+					"description": "%description.neteasemusic.cdn.redirect%"
+				},
+				"NeteaseMusic.PIN.auto": {
+					"type": "boolean",
+					"default": false,
+					"scope": "machine",
+					"description": "%description.neteasemusic.pin.auto%"
+				},
+				"NeteaseMusic.reset.control": {
+					"type": "boolean",
+					"default": false,
+					"scope": "machine",
+					"description": "%description.neteasemusic.reset.control%"
+				}
+			}
+		},
+		"menus": {
+			"commandPalette": [
+				{
+					"command": "neteasemusic.reset",
+					"when": "!neteasemusic.on && config.NeteaseMusic.reset.control"
+				},
+				{
+					"command": "neteasemusic.start",
+					"when": "!neteasemusic.on"
+				},
+				{
+					"command": "neteasemusic.stop",
+					"when": "neteasemusic.on"
+				},
+				{
+					"command": "neteasemusic.login",
+					"when": "neteasemusic.on && !neteasemusic.logged"
+				},
+				{
+					"command": "neteasemusic.login.cookie",
+					"when": "neteasemusic.on && !neteasemusic.logged"
+				},
+				{
+					"command": "neteasemusic.logout",
+					"when": "neteasemusic.on && neteasemusic.logged"
+				},
+				{
+					"command": "neteasemusic.sign",
+					"when": "neteasemusic.on && neteasemusic.logged && !neteasemusic.signed"
+				},
+				{
+					"command": "neteasemusic.search",
+					"when": "neteasemusic.on"
+				},
+				{
+					"command": "neteasemusic.toplist",
+					"when": "neteasemusic.on"
+				},
+				{
+					"command": "neteasemusic.new.song",
+					"when": "neteasemusic.on"
+				},
+				{
+					"command": "neteasemusic.new.album",
+					"when": "neteasemusic.on"
+				},
+				{
+					"command": "neteasemusic.playlist.hot",
+					"when": "neteasemusic.on"
+				},
+				{
+					"command": "neteasemusic.playlist.highquality",
+					"when": "neteasemusic.on"
+				},
+				{
+					"command": "neteasemusic.recommend.song",
+					"when": "neteasemusic.on && neteasemusic.logged"
+				},
+				{
+					"command": "neteasemusic.recommend.playlist",
+					"when": "neteasemusic.on && neteasemusic.logged"
+				},
+				{
+					"command": "neteasemusic.recommend.radio",
+					"when": "neteasemusic.on && neteasemusic.logged && !neteasemusic.radio"
+				},
+				{
+					"command": "neteasemusic.user.artist",
+					"when": "neteasemusic.on && neteasemusic.logged"
+				},
+				{
+					"command": "neteasemusic.user.album",
+					"when": "neteasemusic.on && neteasemusic.logged"
+				},
+				{
+					"command": "neteasemusic.user.djradio",
+					"when": "neteasemusic.on && neteasemusic.logged"
+				},
+				{
+					"command": "neteasemusic.user.record",
+					"when": "neteasemusic.on && neteasemusic.logged"
+				},
+				{
+					"command": "neteasemusic.user.playlist",
+					"when": "neteasemusic.on && neteasemusic.logged"
+				},
+				{
+					"command": "neteasemusic.like",
+					"when": "neteasemusic.on && neteasemusic.logged && neteasemusic.track && !neteasemusic.liked && !neteasemusic.program"
+				},
+				{
+					"command": "neteasemusic.dislike",
+					"when": "neteasemusic.on && neteasemusic.logged && neteasemusic.track && neteasemusic.liked"
+				},
+				{
+					"command": "neteasemusic.trash",
+					"when": "neteasemusic.on && neteasemusic.track && neteasemusic.radio"
+				},
+				{
+					"command": "neteasemusic.list",
+					"when": "neteasemusic.on && neteasemusic.track"
+				},
+				{
+					"command": "neteasemusic.list.edit",
+					"when": "neteasemusic.on && neteasemusic.track && !neteasemusic.radio"
+				},
+				{
+					"command": "neteasemusic.more",
+					"when": "neteasemusic.on && neteasemusic.track"
+				},
+				{
+					"command": "neteasemusic.previous",
+					"when": "neteasemusic.on && neteasemusic.track && !neteasemusic.radio"
+				},
+				{
+					"command": "neteasemusic.next",
+					"when": "neteasemusic.on && neteasemusic.track"
+				},
+				{
+					"command": "neteasemusic.volume",
+					"when": "neteasemusic.on && neteasemusic.track"
+				},
+				{
+					"command": "neteasemusic.mute",
+					"when": "neteasemusic.on && neteasemusic.track && !neteasemusic.muted"
+				},
+				{
+					"command": "neteasemusic.unmute",
+					"when": "neteasemusic.on && neteasemusic.track && neteasemusic.muted"
+				},
+				{
+					"command": "neteasemusic.auto.mute.unmute",
+					"when": "neteasemusic.on && neteasemusic.track && neteasemusic.exposed"
+				},
+				{
+					"command": "neteasemusic.play",
+					"when": "neteasemusic.on && neteasemusic.track && !neteasemusic.playing"
+				},
+				{
+					"command": "neteasemusic.pause",
+					"when": "neteasemusic.on && neteasemusic.track && neteasemusic.playing"
+				},
+				{
+					"command": "neteasemusic.auto.play.pause",
+					"when": "neteasemusic.on && neteasemusic.track && neteasemusic.exposed"
+				},
+				{
+					"command": "neteasemusic.mode.loop",
+					"when": "neteasemusic.on && neteasemusic.track && neteasemusic.mode == 0 && !neteasemusic.radio"
+				},
+				{
+					"command": "neteasemusic.mode.repeat",
+					"when": "neteasemusic.on && neteasemusic.track && neteasemusic.mode == 1 && !neteasemusic.radio"
+				},
+				{
+					"command": "neteasemusic.mode.random",
+					"when": "neteasemusic.on && neteasemusic.track && neteasemusic.mode == 2 && !neteasemusic.radio"
+				},
+				{
+					"command": "neteasemusic.mode.intelligent",
+					"when": "neteasemusic.on && neteasemusic.track && neteasemusic.mode == 3 && !neteasemusic.radio"
+				}
+			]
+		}
+	},
+	"scripts": {
+		"test": "node ./node_modules/vscode/bin/test"
+	},
+	"devDependencies": {
+		"@types/vscode": "^1.35.0",
+		"eslint": "^6.8.0",
+		"vscode-test": "^1.4.0"
+	},
+	"dependencies": {
+		"mpris-service": "^2.1.0"
+	},
+	"__metadata": {
+		"id": "db02610b-5329-4547-9b65-417a8b4eb2a5",
+		"publisherId": "957fe9c9-0889-412e-b50b-89d33589ba74",
+		"publisherDisplayName": "nondanee",
+		"targetPlatform": "undefined",
+		"isApplicationScoped": false,
+		"updated": false,
+		"isPreReleaseVersion": false,
+		"installedTimestamp": 1665800336903,
+		"preRelease": false
+	}
+}
