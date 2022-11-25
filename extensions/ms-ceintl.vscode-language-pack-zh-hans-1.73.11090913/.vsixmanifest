@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+	<PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
+		<Metadata>
+			<Identity Language="en-US" Id="vscode-language-pack-zh-hans" Version="1.73.11090913" Publisher="MS-CEINTL" />
+			<DisplayName>Chinese (Simplified) (简体中文) Language Pack for Visual Studio Code</DisplayName>
+			<Description xml:space="preserve">Language pack extension for Chinese (Simplified)</Description>
+			<Tags>lp-zh-cn,__lp_vscode,__lp-zh-cn_vscode,__lp_bat,__lp-zh-cn_bat,__lp_clojure,__lp-zh-cn_clojure,__lp_coffeescript,__lp-zh-cn_coffeescript,__lp_configuration-editing,__lp-zh-cn_configuration-editing,__lp_cpp,__lp-zh-cn_cpp,__lp_csharp,__lp-zh-cn_csharp,__lp_css-language-features,__lp-zh-cn_css-language-features,__lp_css,__lp-zh-cn_css,__lp_dart,__lp-zh-cn_dart,__lp_debug-auto-launch,__lp-zh-cn_debug-auto-launch,__lp_debug-server-ready,__lp-zh-cn_debug-server-ready,__lp_diff,__lp-zh-cn_diff,__lp_docker,__lp-zh-cn_docker,__lp_emmet,__lp-zh-cn_emmet,__lp_extension-editing,__lp-zh-cn_extension-editing,__lp_fsharp,__lp-zh-cn_fsharp,__lp_git-base,__lp-zh-cn_git-base,__lp_git,__lp-zh-cn_git,__lp_github-authentication,__lp-zh-cn_github-authentication,__lp_github,__lp-zh-cn_github,__lp_go,__lp-zh-cn_go,__lp_groovy,__lp-zh-cn_groovy,__lp_grunt,__lp-zh-cn_grunt,__lp_gulp,__lp-zh-cn_gulp,__lp_handlebars,__lp-zh-cn_handlebars,__lp_hlsl,__lp-zh-cn_hlsl,__lp_html-language-features,__lp-zh-cn_html-language-features,__lp_html,__lp-zh-cn_html,__lp_image-preview,__lp-zh-cn_image-preview,__lp_ini,__lp-zh-cn_ini,__lp_ipynb,__lp-zh-cn_ipynb,__lp_jake,__lp-zh-cn_jake,__lp_java,__lp-zh-cn_java,__lp_javascript,__lp-zh-cn_javascript,__lp_json-language-features,__lp-zh-cn_json-language-features,__lp_json,__lp-zh-cn_json,__lp_julia,__lp-zh-cn_julia,__lp_latex,__lp-zh-cn_latex,__lp_less,__lp-zh-cn_less,__lp_log,__lp-zh-cn_log,__lp_lua,__lp-zh-cn_lua,__lp_make,__lp-zh-cn_make,__lp_markdown-basics,__lp-zh-cn_markdown-basics,__lp_markdown-language-features,__lp-zh-cn_markdown-language-features,__lp_markdown-math,__lp-zh-cn_markdown-math,__lp_media-preview,__lp-zh-cn_media-preview,__lp_merge-conflict,__lp-zh-cn_merge-conflict,__lp_microsoft-authentication,__lp-zh-cn_microsoft-authentication,__lp_ms-vscode.js-debug,__lp-zh-cn_ms-vscode.js-debug,__lp_notebook-renderers,__lp-zh-cn_notebook-renderers,__lp_npm,__lp-zh-cn_npm,__lp_objective-c,__lp-zh-cn_objective-c,__lp_perl,__lp-zh-cn_perl,__lp_php-language-features,__lp-zh-cn_php-language-features,__lp_php,__lp-zh-cn_php,__lp_powershell,__lp-zh-cn_powershell,__lp_pug,__lp-zh-cn_pug,__lp_python,__lp-zh-cn_python,__lp_r,__lp-zh-cn_r,__lp_razor,__lp-zh-cn_razor,__lp_references-view,__lp-zh-cn_references-view,__lp_restructuredtext,__lp-zh-cn_restructuredtext,__lp_ruby,__lp-zh-cn_ruby,__lp_rust,__lp-zh-cn_rust,__lp_scss,__lp-zh-cn_scss,__lp_search-result,__lp-zh-cn_search-result,__lp_shaderlab,__lp-zh-cn_shaderlab,__lp_shellscript,__lp-zh-cn_shellscript,__lp_simple-browser,__lp-zh-cn_simple-browser,__lp_sql,__lp-zh-cn_sql,__lp_swift,__lp-zh-cn_swift,__lp_theme-abyss,__lp-zh-cn_theme-abyss,__lp_theme-defaults,__lp-zh-cn_theme-defaults,__lp_theme-kimbie-dark,__lp-zh-cn_theme-kimbie-dark,__lp_theme-monokai-dimmed,__lp-zh-cn_theme-monokai-dimmed,__lp_theme-monokai,__lp-zh-cn_theme-monokai,__lp_theme-quietlight,__lp-zh-cn_theme-quietlight,__lp_theme-red,__lp-zh-cn_theme-red,__lp_theme-seti,__lp-zh-cn_theme-seti,__lp_theme-solarized-dark,__lp-zh-cn_theme-solarized-dark,__lp_theme-solarized-light,__lp-zh-cn_theme-solarized-light,__lp_theme-tomorrow-night-blue,__lp-zh-cn_theme-tomorrow-night-blue,__lp_typescript-basics,__lp-zh-cn_typescript-basics,__lp_typescript-language-features,__lp-zh-cn_typescript-language-features,__lp_vb,__lp-zh-cn_vb,__lp_xml,__lp-zh-cn_xml,__lp_yaml,__lp-zh-cn_yaml</Tags>
+			<Categories>Language Packs</Categories>
+			<GalleryFlags>Public</GalleryFlags>
+			
+			<Properties>
+				<Property Id="Microsoft.VisualStudio.Code.Engine" Value="^1.73.0" />
+				<Property Id="Microsoft.VisualStudio.Code.ExtensionDependencies" Value="" />
+				<Property Id="Microsoft.VisualStudio.Code.ExtensionPack" Value="" />
+				<Property Id="Microsoft.VisualStudio.Code.ExtensionKind" Value="ui,workspace" />
+				<Property Id="Microsoft.VisualStudio.Code.LocalizedLanguages" Value="中文(简体)" />
+				
+				
+				<Property Id="Microsoft.VisualStudio.Services.Links.Source" Value="https://github.com/Microsoft/vscode-loc.git" />
+				<Property Id="Microsoft.VisualStudio.Services.Links.Getstarted" Value="https://github.com/Microsoft/vscode-loc.git" />
+				<Property Id="Microsoft.VisualStudio.Services.Links.GitHub" Value="https://github.com/Microsoft/vscode-loc.git" />
+				<Property Id="Microsoft.VisualStudio.Services.Links.Support" Value="https://github.com/Microsoft/vscode-loc/issues" />
+				<Property Id="Microsoft.VisualStudio.Services.Links.Learn" Value="https://github.com/Microsoft/vscode-loc#readme" />
+				
+				
+				<Property Id="Microsoft.VisualStudio.Services.GitHubFlavoredMarkdown" Value="true" />
+				<Property Id="Microsoft.VisualStudio.Services.Content.Pricing" Value="Free"/>
+
+				
+				
+			</Properties>
+			
+			<Icon>extension/languagepack.png</Icon>
+		</Metadata>
+		<Installation>
+			<InstallationTarget Id="Microsoft.VisualStudio.Code"/>
+		</Installation>
+		<Dependencies/>
+		<Assets>
+			<Asset Type="Microsoft.VisualStudio.Code.Manifest" Path="extension/package.json" Addressable="true" />
+			<Asset Type="Microsoft.VisualStudio.Services.Content.Details" Path="extension/README.md" Addressable="true" />
+<Asset Type="Microsoft.VisualStudio.Services.Content.Changelog" Path="extension/CHANGELOG.md" Addressable="true" />
+<Asset Type="Microsoft.VisualStudio.Services.Icons.Default" Path="extension/languagepack.png" Addressable="true" />
+<Asset Type="Microsoft.VisualStudio.Code.Translation.ZH-CN" Path="extension/translations/main.i18n.json" Addressable="true" />
+		</Assets>
+	</PackageManifest>
