@@ -1,0 +1,61 @@
+{
+  "short_name": "SQLite Viewer",
+  "name": "SQLite Viewer",
+  "icons": [
+    {
+      "src": "logo192.webp",
+      "type": "image/webp",
+      "sizes": "192x192"
+    },
+    {
+      "src": "logo192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "logo512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    },
+    {
+      "src": "logo192_maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "logo512_maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "id": "/?source=app",
+  "start_url": ".?source=app",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay"],
+  "background_color": "rgb(242, 242, 247)",
+  "color_scheme_dark": {
+    "background_color": "rgb(22, 22, 24)"
+  },
+  "file_handlers": [
+    {
+      "action": ".?source=app&open-with",
+      "name": "SQLite Database",
+      "accept": {
+        "application/vnd.sqlite3": [
+          ".sqlite",
+          ".sqlite3",
+          ".db",
+          ".db3"
+        ],
+        "application/x-sqlite3": [
+          ".sqlite",
+          ".sqlite3",
+          ".db",
+          ".db3"
+        ]
+      }
+    }
+  ]
+}
