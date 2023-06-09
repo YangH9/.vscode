@@ -1,0 +1,51 @@
+{
+  "extension.name": "支付宝小程序开发助手",
+  "extension.description": "支付宝小程序开发助手，支持钉钉小程序。",
+  "extension.configuration.title": "小程序开发助手配置",
+  "extension.configuration.enableJSComplete": "启动 JSApi 补全",
+  "extension.configuration.miniProjectJsonPath": "小程序配置文件(mini.project.json) 的路径",
+  "extension.configuration.scaffold.path": "小程序模板路径",
+  "extension.sitemap.isIndexed": "根据 sitemap.json 中的规则[{0}], 该页面将会被索引",
+  "extension.commands.newPage": "新建小程序页面",
+  "extension.commands.newComponent": "新建小程序组件",
+  "extension.configuration.ide.path": "小程序开发者工具安装路径",
+  "extension.configuration.autoGeneratePageWhenAppJsonChanged": "在 app.json 中新增小程序页面后自动创建对应代码文件",
+
+  "extension.configuration.scaffold.createTs": "创建模板时使用 .ts 文件",
+  "extension.configuration.scaffold.createLess": "创建模板时使用 .less 文件",
+
+  "extension.commands.refresh": "重启小程序语言服务",
+  "extension.configuration.axml.disableDiagnosis": "禁用对 AXML 文件的语法诊断功能",
+  "extension.configuration.axml.disableHover": "禁用 AXML 文件的鼠标悬浮显示信息功能",
+  "extension.configuration.axml.disableTagCompletion": "禁用 AXML 文件中标签相关的代码自动提示",
+  "extension.configuration.axml.disableExpressionCompletion": "禁用 AXML 文件中插值相关的代码自动提示",
+  "extension.configuration.axml.disableStyleCompletion": "禁用 AXML 文件中样式相关的代码自动提示",
+
+  "extension.configuration.js.disableTyping": "禁用小程序的 Typing 类型文件提示(需要重启 TS 服务或者重新加载窗口)",
+
+  "extension.configuration.axml.format.attributeWrapLineLength": "axml 格式化时，换行显示属性的字符长度",
+  "extension.configuration.axml.format.wrapAttributesMode": "对属性进行换行的策略。",
+  "extension.configuration.axml.format.wrapAttributesMode.forceExpandMultiline": "在超出行长度时对所有属性进行换行。",
+
+  "extension.configuration.axml.legacyFormat.enable": "[Legacy] 启用 Legacy 版本的 Formatter（不再维护）",
+  "extension.configuration.axml.legacyFormat.attributeWrapLineLength": "[Legacy] axml 格式化时，换行显示属性的字符长度",
+  "extension.configuration.axml.legacyFormat.wrapAttributesMode": "[Legacy] 对属性进行换行的策略。",
+  "extension.configuration.axml.legacyFormat.wrapAttributesMode.auto": "[Legacy] 仅在超出行长度时才对属性进行换行。",
+  "extension.configuration.axml.legacyFormat.wrapAttributesMode.force": "[Legacy] 对除第一个属性外的其他每个属性进行换行。",
+  "extension.configuration.axml.legacyFormat.wrapAttributesMode.forceAligned": "[Legacy] 对除第一个属性外的其他每个属性进行换行，并保持对齐。",
+  "extension.configuration.axml.legacyFormat.wrapAttributesMode.forceExpandMultiline": "[Legacy] 对每个属性进行换行。",
+  "extension.configuration.axml.legacyFormat.wrapAttributesMode.alignedMultiple": "[Legacy] 当超出折行长度时，将属性进行垂直对齐。",
+
+  "extension.configuration.json.disableHover": "禁用小程序相关 JSON 文件的鼠标悬浮显示信息功能",
+  "extension.configuration.json.disablePageCompletion": "禁用小程序相关 JSON 文件中页面路径的代码自动提示",
+  "extension.configuration.json.disableComponentCompletion": "禁用小程序相关 JSON 文件中自定义组件路径的代码自动提示",
+
+  "extension.configuration.acss.disableRpxCompletion": "禁用小程序相关 acss rpx 单位代码自动提示",
+  "extension.configuration.acss.disableImportCompletion": "禁用小程序相关 acss 中 @import 代码自动提示",
+
+  "extension.configuration.disableAutoUpdateTypings": "禁止自动更新小程序的类型文件",
+  "extension.configuration.disableAutoUpdateResources": "禁止自动更新小程序相关的资源(JSON Schemas/AXML标签元信息等)",
+
+  "extension.commands.appx.downloadApiTyping": "下载小程序相关的 API Typing",
+  "extension.commands.appx.downloadLatestMiniResources": "下载小程序相关资源(JSON Schemas/AXML标签元信息等)"
+}

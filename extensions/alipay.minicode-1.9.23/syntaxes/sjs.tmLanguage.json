@@ -1,0 +1,11 @@
+{
+	"information_for_contributors": [
+	],
+	"name": "sjs",
+	"scopeName": "source.js.sjs",
+	"patterns": [
+		{
+			"include": "source.js"
+    }
+  ]
+}

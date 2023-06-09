@@ -1,0 +1,51 @@
+{
+  "extension.name": "Alipay Mini Program Support",
+  "extension.description": "Alipay Mini Program Support for for Visual Studio Code",
+  "extension.sitemap.isIndexed": "This page will be indexed due to rule [{0}] in sitemap.json",
+  "extension.configuration.title": "Mini Program Support Configuration",
+  "extension.configuration.enableJSComplete": "Enabled JSApi snippet",
+  "extension.configuration.miniProjectJsonPath": "mini.project.json path",
+  "extension.configuration.scaffold.path": "Mini Program Create Template root path",
+  "extension.commands.newPage": "New Mini Program Page",
+  "extension.commands.newComponent": "New Mini Program Component",
+  "extension.configuration.ide.path": "Mini Program Studio app path",
+  "extension.configuration.autoGeneratePageWhenAppJsonChanged": "Automatically create the corresponding code file when a new page is added in app.json",
+
+  "extension.configuration.scaffold.createTs": "Use .ts file when creating template",
+  "extension.configuration.scaffold.createLess": "Use .less file when creating template",
+
+  "extension.commands.refresh": "Restart Mini Program Language Server",
+  "extension.configuration.axml.disableDiagnosis": "Disable the syntax diagnosis of AXML files.",
+  "extension.configuration.axml.disableHover": "Disable the hover widget of AXML files.",
+  "extension.configuration.axml.disableTagCompletion": "Disable the completion proposals of AXML tags.",
+  "extension.configuration.axml.disableExpressionCompletion": "Disable the completion proposals of AXML expression.",
+  "extension.configuration.axml.disableStyleCompletion": "Disable the completion proposals of AXML inline style.",
+
+  "extension.configuration.js.disableTyping": "Disable Mini Program Typing files(Need Restart TS Server or Reload Window)",
+
+  "extension.configuration.axml.format.attributeWrapLineLength": "The character length of the newline display attribute.",
+  "extension.configuration.axml.format.wrapAttributesMode": "Wrap attributes.",
+  "extension.configuration.axml.format.wrapAttributesMode.forceExpandMultiline": "Wrap each attribute when one line length is exceeded.",
+
+  "extension.configuration.axml.legacyFormat.enable": "[Legacy] Enable Legacy Formatter (No longer maintained)",
+  "extension.configuration.axml.legacyFormat.attributeWrapLineLength": "[Legacy] The character length of the newline display attribute.",
+  "extension.configuration.axml.legacyFormat.wrapAttributesMode": "[Legacy] Wrap attributes.",
+  "extension.configuration.axml.legacyFormat.wrapAttributesMode.auto": "[Legacy] Wrap attributes only when line length is exceeded.",
+  "extension.configuration.axml.legacyFormat.wrapAttributesMode.force": "[Legacy] Wrap each attribute except first.",
+  "extension.configuration.axml.legacyFormat.wrapAttributesMode.forceAligned": "[Legacy] Wrap each attribute except first and keep aligned.",
+  "extension.configuration.axml.legacyFormat.wrapAttributesMode.forceExpandMultiline": "[Legacy] Wrap each attribute.",
+  "extension.configuration.axml.legacyFormat.wrapAttributesMode.alignedMultiple": "[Legacy] Wrap when line length is exceeded, align attributes vertically.",
+
+  "extension.configuration.json.disableHover": "Disable the hover widget of Mini Program JSON files.",
+  "extension.configuration.json.disablePageCompletion": "Disable the completion proposals of page path.",
+  "extension.configuration.json.disableComponentCompletion": "Disable the completion proposals of component path.",
+
+  "extension.configuration.acss.disableRpxCompletion": "Disable the completion proposals of rpx in Mini Program ACSS files.",
+  "extension.configuration.acss.disableImportCompletion": "Disable the completion proposals of '@import' path.",
+
+  "extension.configuration.disableAutoUpdateTypings": "Disable Automatically Update Typings",
+  "extension.configuration.disableAutoUpdateResources": "Disable Automatically Update Mini Program Resources(JSON Schemas/AXML Language Facts)",
+
+  "extension.commands.appx.downloadApiTyping": "Download Latest API Typing",
+  "extension.commands.appx.downloadLatestMiniResources": "Download Latest Mini Program Resources(JSON Schemas/AXML Language Facts)"
+}

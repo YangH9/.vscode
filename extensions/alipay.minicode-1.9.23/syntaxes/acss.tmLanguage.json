@@ -1,0 +1,11 @@
+{
+	"information_for_contributors": [
+	],
+	"name": "acss",
+	"scopeName": "source.css.acss",
+	"patterns": [
+		{
+			"include": "source.css"
+    }
+  ]
+}

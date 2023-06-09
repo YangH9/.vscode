@@ -1,0 +1,188 @@
+{
+	"name": "gitblame",
+	"displayName": "Git Blame",
+	"description": "See git blame information in the status bar.",
+	"version": "10.2.0",
+	"publisher": "waderyan",
+	"engines": {
+		"vscode": "^1.77.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"galleryBanner": {
+		"color": "#f0efe7",
+		"theme": "light"
+	},
+	"icon": "images/git_icon.png",
+	"activationEvents": [
+		"onStartupFinished"
+	],
+	"keywords": [
+		"git",
+		"gitblame",
+		"blame",
+		"github",
+		"gitlab",
+		"bitbucket"
+	],
+	"qna": false,
+	"main": "./out/src/index",
+	"scripts": {
+		"vscode:prepublish": "npm run build",
+		"build": "node esbuild.mjs",
+		"package": "npx vsce package",
+		"lint": "eslint --no-inline-config --ext .js,.ts ./src ./test",
+		"pretest": "tsc --project tsconfig.test.json",
+		"test": "npm run pretest && node ./out/test/run-test.js"
+	},
+	"devDependencies": {
+		"@types/mocha": "10.0.1",
+		"@types/node": "16.11.39",
+		"@types/sinon": "10.0.13",
+		"@types/vscode": "1.77.0",
+		"@typescript-eslint/eslint-plugin": "5.57.1",
+		"@typescript-eslint/parser": "5.57.1",
+		"@vscode/test-electron": "2.3.0",
+		"esbuild": "0.17.15",
+		"eslint": "8.38.0",
+		"mocha": "10.2.0",
+		"sinon": "15.0.3",
+		"typescript": "5.0.4"
+	},
+	"homepage": "https://github.com/Sertion/vscode-gitblame/blob/master/README.md",
+	"bugs": {
+		"url": "https://github.com/Sertion/vscode-gitblame/issues"
+	},
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/Sertion/vscode-gitblame"
+	},
+	"extensionDependencies": [
+		"vscode.git"
+	],
+	"capabilities": {
+		"virtualWorkspaces": false
+	},
+	"contributes": {
+		"commands": [
+			{
+				"command": "gitblame.quickInfo",
+				"title": "Git Blame: Show quick info"
+			},
+			{
+				"command": "gitblame.online",
+				"title": "Git Blame: View last change online"
+			},
+			{
+				"command": "gitblame.addCommitHashToClipboard",
+				"title": "Git Blame: Copy hash to clipboard"
+			},
+			{
+				"command": "gitblame.addToolUrlToClipboard",
+				"title": "Git Blame: Copy tool URL to clipboard"
+			}
+		],
+		"configuration": {
+			"type": "object",
+			"title": "Git Blame",
+			"properties": {
+				"gitblame.infoMessageFormat": {
+					"type": "string",
+					"default": "${commit.summary}",
+					"description": "Customize the info message"
+				},
+				"gitblame.statusBarMessageClickAction": {
+					"type": "string",
+					"default": "Show info message",
+					"enum": [
+						"Show info message",
+						"Open tool URL"
+					],
+					"enumDescriptions": [
+						"Show a info message with a short summary of the commit",
+						"Attempty to directly open the tool URL"
+					]
+				},
+				"gitblame.statusBarMessageFormat": {
+					"type": "string",
+					"default": "Blame ${author.name} (${time.ago})",
+					"description": "Customize the status bar message"
+				},
+				"gitblame.statusBarMessageNoCommit": {
+					"type": "string",
+					"default": "Not Committed Yet",
+					"description": "Customize the status bar message"
+				},
+				"gitblame.statusBarPositionPriority": {
+					"type": "number",
+					"default": 500,
+					"description": "Priority where the status bar view should be placed"
+				},
+				"gitblame.inlineMessageEnabled": {
+					"type": "boolean",
+					"default": false,
+					"description": "Show blame information inline (next to the code)"
+				},
+				"gitblame.inlineMessageFormat": {
+					"type": "string",
+					"default": "Blame ${author.name} (${time.ago})",
+					"description": "Customize the inline message"
+				},
+				"gitblame.inlineMessageNoCommit": {
+					"type": "string",
+					"default": "Not Committed Yet",
+					"description": "Customize the inline message"
+				},
+				"gitblame.inlineMessageMargin": {
+					"type": "number",
+					"default": 2,
+					"description": "The amount of margin between line and inline blame view"
+				},
+				"gitblame.remoteName": {
+					"type": "string",
+					"default": "origin",
+					"markdownDescription": "The name of the git remote used to build the URL."
+				},
+				"gitblame.commitUrl": {
+					"type": "string",
+					"default": "${tool.protocol}//${gitorigin.hostname}${gitorigin.port}${gitorigin.path}${tool.commitpath}${hash}",
+					"markdownDescription": "The link to an online tool to view a commit (use `${hash}` for the commit hash)."
+				},
+				"gitblame.ignoreWhitespace": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "Ignore whitespace changes when blaming (`-w` flag)"
+				},
+				"gitblame.isWebPathPlural": {
+					"deprecationMessage": "This setting has been replaced by gitblame.pluralWebPathSubstrings"
+				},
+				"gitblame.pluralWebPathSubstrings": {
+					"type": "array",
+					"default": [
+						"bitbucket",
+						"atlassian"
+					],
+					"markdownDescription": "An array of substrings that, when present in the git origin URL, adds an extra _s_ to the url after _commit_ in `gitblame.commitUrl`'s default behavior"
+				},
+				"gitblame.delayBlame": {
+					"type": "number",
+					"default": 0,
+					"markdownDescription": "This setting adds a delay (in milliseconds) before the blame is displayed"
+				}
+			}
+		}
+	},
+	"__metadata": {
+		"id": "2335b326-c334-4e81-bc51-c408fcec6e7c",
+		"publisherId": "531ba7ca-0230-4a97-bfd1-0d02fdb02958",
+		"publisherDisplayName": "Wade Anderson",
+		"targetPlatform": "undefined",
+		"isApplicationScoped": false,
+		"updated": true,
+		"isPreReleaseVersion": false,
+		"installedTimestamp": 1682126931841,
+		"preRelease": false
+	}
+}
